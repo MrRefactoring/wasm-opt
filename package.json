@@ -1,6 +1,6 @@
 {
   "name": "wasm-opt",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Makes it possible to call wasm-opt in the current project",
   "author": "Vladislav Tupikin <MrRefactoring@yandex.ru>",
   "license": "MIT",
@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "compile": "tsc",
-    "install": "node ./out/index.js"
+    "preinstall": "node ./out/index.js"
   },
   "repository": {
     "type": "git",
