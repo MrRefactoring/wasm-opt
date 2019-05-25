@@ -1,11 +1,12 @@
 {
   "name": "wasm-opt",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Makes it possible to call wasm-opt in the current project",
   "author": "Vladislav Tupikin <MrRefactoring@yandex.ru>",
+  "license": "MIT",
   "main": "out/index.js",
   "bin": {
-    "wasm-opt": "./out/wasm-opt.exe"
+    "wasm-opt": "out/wasm-opt.exe"
   },
   "files": [
     "out/index.js"
@@ -14,7 +15,18 @@
     "compile": "tsc",
     "install": "node ./out/index.js"
   },
-  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
+  },
+  "keywords": [
+    "wasm",
+    "wasm-opt"
+  ],
+  "bugs": {
+    "url": "https://github.com/MrRefactoring/wasm-opt/issues"
+  },
+  "homepage": "https://github.com/MrRefactoring/wasm-opt#readme",
   "devDependencies": {
     "@types/node-fetch": "^2.3.4",
     "@types/tar": "^4.0.0",
