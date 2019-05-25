@@ -1,0 +1,28 @@
+{
+  "name": "wasm-opt",
+  "version": "1.0.0",
+  "description": "Makes it possible to call wasm-opt in the current project",
+  "author": "Vladislav Tupikin <MrRefactoring@yandex.ru>",
+  "main": "out/index.js",
+  "bin": {
+    "wasm-opt": "./out/wasm-opt.exe"
+  },
+  "files": [
+    "out/index.js"
+  ],
+  "scripts": {
+    "compile": "tsc",
+    "install": "node ./out/index.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node-fetch": "^2.3.4",
+    "@types/tar": "^4.0.0",
+    "tslint": "^5.16.0",
+    "typescript": "^3.4.5"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.0",
+    "tar": "^4.4.8"
+  }
+}

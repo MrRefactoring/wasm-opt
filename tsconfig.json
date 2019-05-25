@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "paths": { "*": ["types/*"] },
+    "baseUrl": ".",
+    "module": "commonjs",
+    "target": "es5",
+    "outDir": "out",
+    "lib": [
+      "es6",
+      "dom"
+    ],
+    "sourceMap": false,
+    "downlevelIteration": true,
+    "rootDir": "src",
+    "alwaysStrict": false,
+    "noImplicitUseStrict": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "strictNullChecks": true,
+    "noUnusedParameters": true,
+    "allowJs": true,
+  },
+  "include": ["src/**/*.js", "src/**/*.ts"],
+  "exclude": [
+    "node_modules"
+  ]
+}
