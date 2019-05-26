@@ -22,3 +22,8 @@ npm i wasm-opt
 ```
 wasm-opt -Os index_bg.wasm -o index.wasm
 ```
+
+# Changelog
+
+### 1.1.0
+  Added linux and macOs support

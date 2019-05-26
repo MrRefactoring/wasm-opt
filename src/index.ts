@@ -1,54 +1,60 @@
-import fetch from 'node-fetch';
 import * as fs from 'fs';
 import * as tar from 'tar';
-import { platform as pl, arch as ar } from 'os';
+import ora from 'ora';
+import { Releases } from './releases';
+import { arch } from 'os';
+import { Network } from './Network';
 
-const wasmOpt = 'wasm-opt.exe';
+const buildName = (
+  platform: string,
+  architecture: string,
+  version: string
+): string => {
+  const platforms: { [key: string]: string } = {
+    darwin: 'apple-darwin',
+    win32: 'windows',
+    linux: 'linux'
+  };
 
-const releaseNameBuilder = async (release: any): Promise<string> => {
-  const version = release.tag_name;
-  const platform = pl() === 'win32' ? 'windows' : '';
-  const arch = ar() === 'x64' ? 'x86_64' : 'x86';
-
-  if (!platform) {
-    throw Error(`\x1b[47m\x1b[30m
-      Currently only windows are supported.
-      If you need another platform, write about this in the issue.
-      https://github.com/MrRefactoring/wasm-opt/issues \x1b[0m
-    `);
-  }
-
-  return `binaryen-${version}-${arch}-${platform}.tar.gz`;
-};
-
-const downloadArchive = async (url: string): Promise<Buffer> => {
-  console.log('Downloading last release of wasm-opt. Please wait...');
-  const archiveRaw = await fetch(url);
-  return archiveRaw.buffer();
+  return `binaryen-${version}-${architecture === 'x64' ? 'x86_64' : 'x86'}-${platforms[platform]}.tar.gz`
 };
 
 (async () => {
-  const response = await fetch('https://api.github.com/repos/WebAssembly/binaryen/releases/latest');
-  const release = await response.json();
+  const releases = await Releases.getRealise('1');
 
-  const releaseName = await releaseNameBuilder(release);
-  const releaseFolder = releaseName.replace(/\.tar\.gz$/, '');
+  const version = releases.tag_name;
+  const platform = process.platform;
+  const architecture = arch();
 
-  const releaseUrl = release
-    .assets
-    .find((asset: any) => asset.name === releaseName)
-    .browser_download_url;
+  if (platform === 'darwin' && architecture === 'x86') {
+    throw new Error('x86 macOs are not supported');
+  }
 
-  fs.writeFileSync(releaseName, await downloadArchive(releaseUrl));
+  const wasmOpt = platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt';
+  const targzName = buildName(platform, architecture, version);
+  const unzipedFolderName = targzName.replace(/\.tar\.gz$/, '');
+
+  const asset = releases.assets.find(asset => asset.name === targzName);
+
+  if (!asset) {
+    throw new Error('Release for current OS not found');
+  }
+
+  fs.writeFileSync(targzName, await Network.downloadBinaries(asset.browser_download_url));
+
+  const spinner = ora('Extracting').start();
 
   await tar.extract({
-    file: releaseName,
-    filter: (_, e) => {
-      return e.header.path!.split('/').reverse()[0] === 'wasm-opt.exe';
+    file: targzName,
+    filter: (_, stat) => {
+      return stat.header.path!.split('/').reverse()[0] === wasmOpt;
     }
   });
 
-  fs.unlinkSync(releaseName);
-  fs.copyFileSync(`${releaseFolder}/${wasmOpt}`, `./out/${wasmOpt}`);
-  fs.unlinkSync(`${releaseFolder}/${wasmOpt}`);
+  spinner.succeed('Extracted');
+
+  fs.unlinkSync(targzName);
+  fs.copyFileSync(`${unzipedFolderName}/${wasmOpt}`, `./out/${wasmOpt}`);
+  fs.unlinkSync(`${unzipedFolderName}/${wasmOpt}`);
+  fs.rmdirSync(unzipedFolderName);
 })();
