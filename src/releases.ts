@@ -45,7 +45,7 @@ interface IReleases {
 }
 
 export namespace Releases {
-  export const getRealise = async (version?: string): Promise<IRelease> => {
+  export const getRelease = async (version?: string): Promise<IRelease> => {
     const spinner = ora('Finding the right release').start();
 
     let release;

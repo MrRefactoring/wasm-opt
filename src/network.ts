@@ -1,5 +1,5 @@
-import fetch from 'node-fetch';
 import ora from 'ora';
+import fetch from 'node-fetch';
 
 export namespace Network {
   export const downloadBinaries = async (url: string): Promise<Buffer> => {

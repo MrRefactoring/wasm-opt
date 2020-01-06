@@ -25,14 +25,14 @@
     "wasm-opt"
   ],
   "devDependencies": {
-    "@types/node-fetch": "^2.3.4",
-    "@types/tar": "^4.0.0",
-    "tslint": "^5.16.0",
-    "typescript": "^3.4.5"
+    "@types/node-fetch": "^2.5.4",
+    "@types/tar": "^4.0.3",
+    "tslint": "^5.20.1",
+    "typescript": "^3.7.4"
   },
   "dependencies": {
     "node-fetch": "^2.6.0",
-    "ora": "^3.4.0",
-    "tar": "^4.4.8"
+    "ora": "^4.0.3",
+    "tar": "^5.0.5"
   }
 }

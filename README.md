@@ -26,4 +26,7 @@ wasm-opt -Os index_bg.wasm -o index.wasm
 # Changelog
 
 ### 1.1.0
-  Added linux and macOs support
+  - Added linux and macOs support
+
+### 1.0.0
+  - Release
