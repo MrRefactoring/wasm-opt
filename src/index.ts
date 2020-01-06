@@ -19,7 +19,7 @@ const buildAssetName = (
   return `binaryen-${version}-${architecture === 'x64' ? 'x86_64' : 'x86'}-${platforms[platform]}.tar.gz`;
 };
 
-const buildFilename = (platform: string, architecture: string, version: string) => `binaryen-${version}-${platform === 'win32' && architecture === 'x64' ? 'x86_64' : 'x86'}-${platform === 'win32' && 'windows'}.tar.gz`;
+const buildFilename = (platform: string, architecture: string, version: string) => `binaryen-${version}${platform === 'win32' && (architecture === 'x64' ? '-x86_64' : '-x86') || ''}${platform === 'win32' && '-windows' || ''}.tar.gz`;
 
 (async () => {
   const releases = await Releases.getRelease('1');
