@@ -16,10 +16,10 @@ const buildAssetName = (
     linux: 'linux',
   };
 
-  return `binaryen-${version}-${architecture === 'x64' ? 'x86_64' : 'x86'}-${platforms[platform]}.tar.gz`
+  return `binaryen-${version}-${architecture === 'x64' ? 'x86_64' : 'x86'}-${platforms[platform]}.tar.gz`;
 };
 
-const buildFilename = (version: string) => `binaryen-${version}.tar.gz`;
+const buildFilename = (platform: string, architecture: string, version: string) => `binaryen-${version}-${platform === 'win32' && architecture === 'x64' ? 'x86_64' : 'x86'}-${platform === 'win32' && 'windows'}.tar.gz`;
 
 (async () => {
   const releases = await Releases.getRelease('1');
@@ -34,7 +34,7 @@ const buildFilename = (version: string) => `binaryen-${version}.tar.gz`;
 
   const wasmOpt = platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt';
   const assetName = buildAssetName(platform, architecture, version);
-  const filename = buildFilename(version);
+  const filename = buildFilename(platform, architecture, version);
   const foldername = filename.replace(/\.tar\.gz$/, '');
 
   const asset = releases.assets.find(asset => asset.name === assetName);
