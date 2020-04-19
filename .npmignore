@@ -1,1 +1,5 @@
 out/wasm-opt.exe
+out/wasm-opt
+
+.DS_Store
+.editorconfig
