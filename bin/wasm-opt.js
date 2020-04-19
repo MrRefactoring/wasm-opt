@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { join } from 'path';
-import { spawn } from 'child_process';
 
-const spawned = spawn(
-  join(__dirname, 'wasm-opt'),
+const path = require('path');
+const cp = require('child_process');
+
+const spawned = cp.spawn(
+  path.join(__dirname, 'wasm-opt'),
   process.argv.slice(2),
   { cwd: './', shell: true }
 );

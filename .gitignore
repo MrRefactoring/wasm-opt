@@ -1,4 +1,7 @@
-node_modules/
-out/
+/node_modules/
 
+/bin/wasm-opt
+/bin/wasm-opt.exe
+
+.DS_Store
 package-lock.json
