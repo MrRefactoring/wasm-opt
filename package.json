@@ -1,7 +1,7 @@
 {
   "name": "wasm-opt",
-  "version": "1.0.0",
-  "main": "bin/index.js",
+  "version": "1.39.1",
+  "main": "bin/wasmOpt.js",
   "bin": "bin/wasm-opt",
   "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
   "license": "MIT",
