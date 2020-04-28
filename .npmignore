@@ -1,5 +1,5 @@
-out/wasm-opt.exe
-out/wasm-opt
+bin/wasm-opt.exe
+bin/wasm-opt
 
 .DS_Store
 .editorconfig
