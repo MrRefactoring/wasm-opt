@@ -1,7 +1,7 @@
 {
   "name": "wasm-opt",
   "description": "Makes it possible to call wasm-opt in your project",
-  "version": "1.39.1-beta.0",
+  "version": "1.39.1-beta.1",
   "main": "bin/wasm-opt.js",
   "bin": {
     "wasm-opt": "bin/wasm-opt.js"
