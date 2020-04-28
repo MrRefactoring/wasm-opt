@@ -17,10 +17,16 @@
     "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
   },
   "scripts": {
-    "postinstall": "node bin/index.js"
+    "prepublishOnly": "yarn lint",
+    "postinstall": "node bin/index.js",
+    "lint": "eslint ./bin --ext .js",
+    "lint:fix": "yarn lint --fix"
+  },
+  "devDependencies": {
+    "eslint": "^6.8.0"
   },
   "dependencies": {
     "node-fetch": "^2.6.0",
-    "tar": "^6.0.1"
+    "tar": "^6.0.2"
   }
 }

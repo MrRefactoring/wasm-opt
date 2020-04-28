@@ -66,6 +66,9 @@ async function getUnpackedFoldername() {
   }
 }
 
+/**
+ * Downloads binaries
+ */
 async function main() {
   try {
     const executableFilename = await getExecutableFilename();
