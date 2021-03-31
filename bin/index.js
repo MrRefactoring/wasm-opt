@@ -16,26 +16,22 @@ const writeFile = promisify(fs.writeFile);
  */
 async function getUrl() {
   const { arch, platform } = process;
-  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1';
+  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/version_100';
 
   switch (platform) {
     case 'win32':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-1.39.1-x86_64-windows.tar.gz`;
-      } else if (arch === 'x32') {
-        return `${baseURL}/binaryen-1.39.1-x86-windows.tar.gz`;
+        return `${baseURL}/binaryen-version_100-x86_64-windows.tar.gz`;
       }
       break;
     case 'darwin':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-1.39.1-x86_64-apple-darwin.tar.gz`;
+        return `${baseURL}/binaryen-version_100-x86_64-macos.tar.gz`;
       }
       break;
     case 'linux':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-1.39.1-x86_64-linux.tar.gz`;
-      } else if (arch === 'x32') {
-        return `${baseURL}/binaryen-1.39.1-x86-linux.tar.gz`;
+        return `${baseURL}/binaryen-version_100-x86_64-linux.tar.gz`;
       }
       break;
   }
@@ -58,15 +54,7 @@ async function getExecutableFilename() {
  * @returns {Promise<string>} unpack folder name
  */
 async function getUnpackedFolderName() {
-  if (process.platform !== 'win32') {
-    return 'binaryen-1.39.1';
-  }
-
-  if (process.arch === 'x64') {
-    return 'binaryen-1.39.1-x86_64-windows';
-  } else {
-    return 'binaryen-1.39.1-x86-windows';
-  }
+  return 'binaryen-version_100';
 }
 
 /**
@@ -92,13 +80,15 @@ async function main() {
     });
 
     const unpackedFolder = path.resolve(__dirname, '..', await getUnpackedFolderName());
-    const downloadedWasmOpt = path.resolve(unpackedFolder, executableFilename);
+    const unpackedBinFolder = path.resolve(unpackedFolder, 'bin');
+    const downloadedWasmOpt = path.resolve(unpackedBinFolder, executableFilename);
     const outputWasmOpt = path.resolve(__dirname, await getExecutableFilename());
 
     await copyFile(downloadedWasmOpt, outputWasmOpt);
 
     await unlink(binariesOutputPath);
     await unlink(downloadedWasmOpt);
+    await rmdir(unpackedBinFolder);
     await rmdir(unpackedFolder);
   } catch (e) {
     throw new Error(`\x1b[31m${e}\x1b[0m`);
