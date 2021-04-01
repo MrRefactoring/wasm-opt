@@ -4,7 +4,9 @@
   "version": "1.39.1-beta.1",
   "main": "bin/wasm-opt.js",
   "bin": {
-    "wasm-opt": "bin/wasm-opt.js"
+    "wasm-opt.js": "bin/wasm-opt.js",
+    "wasm-opt": "bin/wasm-opt",
+    "wasm-opt.exe": "bin/wasm-opt.exe"
   },
   "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
   "license": "MIT",
@@ -12,21 +14,18 @@
     "wasm",
     "wasm-opt"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
-  },
+  "repository": "https://github.com/MrRefactoring/wasm-opt.git",
   "scripts": {
-    "prepublishOnly": "yarn lint",
+    "prepublishOnly": "npm run lint",
     "postinstall": "node bin/index.js",
     "lint": "eslint ./bin --ext .js",
-    "lint:fix": "yarn lint --fix"
+    "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {
-    "eslint": "^6.8.0"
+    "eslint": "^7.23.0"
   },
   "dependencies": {
-    "node-fetch": "^2.6.0",
-    "tar": "^6.0.2"
+    "node-fetch": "^2.6.1",
+    "tar": "^6.1.0"
   }
 }

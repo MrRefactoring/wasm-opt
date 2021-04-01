@@ -16,28 +16,31 @@ const writeFile = promisify(fs.writeFile);
  */
 async function getUrl() {
   const { arch, platform } = process;
+  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1';
 
   switch (platform) {
     case 'win32':
       if (arch === 'x64') {
-        return 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1/binaryen-1.39.1-x86_64-windows.tar.gz';
+        return `${baseURL}/binaryen-1.39.1-x86_64-windows.tar.gz`;
       } else if (arch === 'x32') {
-        return 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1/binaryen-1.39.1-x86-windows.tar.gz';
+        return `${baseURL}/binaryen-1.39.1-x86-windows.tar.gz`;
       }
+      break;
     case 'darwin':
-      if (arch === '64') {
-        return 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1/binaryen-1.39.1-x86_64-apple-darwin.tar.gz';
+      if (arch === 'x64') {
+        return `${baseURL}/binaryen-1.39.1-x86_64-apple-darwin.tar.gz`;
       }
+      break;
     case 'linux':
       if (arch === 'x64') {
-        return 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1/binaryen-1.39.1-x86_64-linux.tar.gz';
+        return `${baseURL}/binaryen-1.39.1-x86_64-linux.tar.gz`;
       } else if (arch === 'x32') {
-        return 'https://github.com/WebAssembly/binaryen/releases/download/1.39.1/binaryen-1.39.1-x86-linux.tar.gz';
+        return `${baseURL}/binaryen-1.39.1-x86-linux.tar.gz`;
       }
+      break;
   }
 
-  console.log('\x1b[33mThis platform not supported\x1b[0m');
-  process.exit();
+  throw new Error('\x1b[33mThis platform not supported\x1b[0m');
 }
 
 /**
@@ -54,7 +57,7 @@ async function getExecutableFilename() {
  *
  * @returns {Promise<string>} unpack folder name
  */
-async function getUnpackedFoldername() {
+async function getUnpackedFolderName() {
   if (process.platform !== 'win32') {
     return 'binaryen-1.39.1';
   }
@@ -88,7 +91,7 @@ async function main() {
         .includes(executableFilename),
     });
 
-    const unpackedFolder = path.resolve(__dirname, '..', await getUnpackedFoldername());
+    const unpackedFolder = path.resolve(__dirname, '..', await getUnpackedFolderName());
     const downloadedWasmOpt = path.resolve(unpackedFolder, executableFilename);
     const outputWasmOpt = path.resolve(__dirname, await getExecutableFilename());
 
@@ -98,9 +101,12 @@ async function main() {
     await unlink(downloadedWasmOpt);
     await rmdir(unpackedFolder);
   } catch (e) {
-    console.error(`\x1b[31m${e}\x1b[0m`);
-    process.exit(1);
+    throw new Error(`\x1b[31m${e}\x1b[0m`);
   }
 }
 
-main();
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

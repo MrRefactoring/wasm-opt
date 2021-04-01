@@ -1,7 +1,8 @@
-/node_modules/
+/.idea
+/node_modules
 
 /bin/wasm-opt
 /bin/wasm-opt.exe
 
 .DS_Store
-package-lock.json
+yarn.lock
