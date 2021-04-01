@@ -1,12 +1,10 @@
 {
   "name": "wasm-opt",
   "description": "Makes it possible to call wasm-opt in your project",
-  "version": "1.39.1-beta.4",
+  "version": "1.1.0",
   "main": "bin/wasm-opt.js",
   "bin": {
-    "wasm-opt.js": "bin/wasm-opt.js",
-    "wasm-opt": "bin/wasm-opt",
-    "wasm-opt.exe": "bin/wasm-opt.exe"
+    "wasm-opt": "bin/wasm-opt.js"
   },
   "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
   "license": "MIT",
