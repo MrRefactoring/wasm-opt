@@ -1,6 +1,0 @@
-bin/wasm-opt.exe
-bin/wasm-opt
-
-.eslintrc
-.DS_Store
-.editorconfig
