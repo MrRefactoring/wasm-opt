@@ -3,6 +3,7 @@
 
 /bin/wasm-opt
 /bin/wasm-opt.exe
+/lib
 
 .DS_Store
 yarn.lock

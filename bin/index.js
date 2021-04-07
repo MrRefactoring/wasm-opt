@@ -4,6 +4,7 @@ const path = require('path');
 const fetch = require('node-fetch');
 const { promisify } = require('util');
 
+const mkdir = promisify(fs.mkdir);
 const copyFile = promisify(fs.copyFile);
 const rmdir = promisify(fs.rmdir);
 const unlink = promisify(fs.unlink);
@@ -73,22 +74,31 @@ async function main() {
 
     await tar.extract({
       file: binariesOutputPath,
-      filter: (_path, stat) => stat.header
-        .path
-        .split('/')
-        .includes(executableFilename),
+      filter: (_path, stat) => {
+        const { path: filePath } = stat.header
+
+        return [executableFilename, 'libbinaryen.dylib'].some((filename) => filePath.endsWith(filename));
+      }
     });
 
     const unpackedFolder = path.resolve(__dirname, '..', await getUnpackedFolderName());
+    const unpackedLibFolder = path.resolve(unpackedFolder, 'lib');
     const unpackedBinFolder = path.resolve(unpackedFolder, 'bin');
     const downloadedWasmOpt = path.resolve(unpackedBinFolder, executableFilename);
+    const downloadedLibbinaryen = path.resolve(unpackedLibFolder, 'libbinaryen.dylib');
     const outputWasmOpt = path.resolve(__dirname, await getExecutableFilename());
+    const outputLibbinaryen = path.resolve(__dirname, '../lib/libbinaryen.dylib');
+
+    await mkdir(path.resolve(__dirname, '../lib'));
 
     await copyFile(downloadedWasmOpt, outputWasmOpt);
+    await copyFile(downloadedLibbinaryen, outputLibbinaryen);
 
     await unlink(binariesOutputPath);
     await unlink(downloadedWasmOpt);
+    await unlink(downloadedLibbinaryen);
     await rmdir(unpackedBinFolder);
+    await rmdir(unpackedLibFolder);
     await rmdir(unpackedFolder);
   } catch (e) {
     throw new Error(`\x1b[31m${e}\x1b[0m`);

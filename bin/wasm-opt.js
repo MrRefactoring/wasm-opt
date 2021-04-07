@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
 
-const rootDir = path.resolve('../wasm-opt/bin/wasm-opt' + process.platform === 'win32' ? '.exe' : '');
+const rootDir = path.resolve(__dirname, './wasm-opt' + (process.platform === 'win32' ? '.exe' : ''));
 
 const spawned = cp.spawn(
-  fs.existsSync(rootDir) ? rootDir : path.join(__dirname, 'wasm-opt' + process.platform === 'win32' ? '.exe' : ''),
+  rootDir,
   process.argv.slice(2),
   { cwd: './', shell: process.platform === 'win32' }
 );
