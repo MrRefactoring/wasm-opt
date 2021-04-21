@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+    paths-ignore:
+      - 'README.md'
+
+jobs:
+  test:
+    name: test
+    strategy:
+      matrix:
+        platform:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: npm install --loglevel verbose && bin/wasm-opt --version
