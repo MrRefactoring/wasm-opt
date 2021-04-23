@@ -3,12 +3,14 @@
 const path = require('path');
 const cp = require('child_process');
 
-const rootDir = path.resolve(__dirname, './wasm-opt' + (process.platform === 'win32' ? '.exe' : ''));
+const platform = process.platform;
+
+const rootDir = path.resolve(__dirname, './wasm-opt' + (platform === 'win32' ? '.exe' : ''));
 
 const spawned = cp.spawn(
   rootDir,
   process.argv.slice(2),
-  { cwd: './', shell: process.platform === 'win32' }
+  { cwd: './', shell: platform === 'win32' }
 );
 
 spawned.stdout.on('data', (data) => {
