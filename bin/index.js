@@ -83,6 +83,7 @@ async function main() {
           executableFilename,
           'libbinaryen.dylib',
           'libbinaryen.a',
+          'binaryen.lib',
         ].some((filename) => filePath.endsWith(filename));
       }
     });
