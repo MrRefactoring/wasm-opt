@@ -10,29 +10,31 @@ const rmdir = promisify(fs.rmdir);
 const unlink = promisify(fs.unlink);
 const writeFile = promisify(fs.writeFile);
 
+const platform = process.platform;
+
 /**
  * Creates URL for wasm-opt binary
  *
  * @returns {Promise<string>} binary url
  */
 async function getUrl() {
-  const { arch, platform } = process;
-  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/version_100';
+  const { arch } = process;
+  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/version_101';
 
   switch (platform) {
     case 'win32':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-version_100-x86_64-windows.tar.gz`;
+        return `${baseURL}/binaryen-version_101-x86_64-windows.tar.gz`;
       }
       break;
     case 'darwin':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-version_100-x86_64-macos.tar.gz`;
+        return `${baseURL}/binaryen-version_101-x86_64-macos.tar.gz`;
       }
       break;
     case 'linux':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-version_100-x86_64-linux.tar.gz`;
+        return `${baseURL}/binaryen-version_101-x86_64-linux.tar.gz`;
       }
       break;
   }
@@ -46,7 +48,7 @@ async function getUrl() {
  * @returns {Promise<string>} name
  */
 async function getExecutableFilename() {
-  return process.platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt';
+  return platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt';
 }
 
 /**
@@ -55,7 +57,7 @@ async function getExecutableFilename() {
  * @returns {Promise<string>} unpack folder name
  */
 async function getUnpackedFolderName() {
-  return 'binaryen-version_100';
+  return 'binaryen-version_101';
 }
 
 /**
@@ -77,19 +79,31 @@ async function main() {
       filter: (_path, stat) => {
         const { path: filePath } = stat.header
 
-        return [executableFilename, 'libbinaryen.dylib'].some((filename) => filePath.endsWith(filename));
+        return [
+          executableFilename,
+          'libbinaryen.dylib',
+          'libbinaryen.a',
+        ].some((filename) => filePath.endsWith(filename));
       }
     });
 
+    const libName = {
+      windows: 'binaryen.lib',
+      linux: 'libbinaryen.a',
+      darwin: 'libbinaryen.dylib',
+    };
+
+    const libFolder = platform === 'linux' ? 'lib64' : 'lib';
+
     const unpackedFolder = path.resolve(__dirname, '..', await getUnpackedFolderName());
-    const unpackedLibFolder = path.resolve(unpackedFolder, 'lib');
+    const unpackedLibFolder = path.resolve(unpackedFolder, libFolder);
     const unpackedBinFolder = path.resolve(unpackedFolder, 'bin');
     const downloadedWasmOpt = path.resolve(unpackedBinFolder, executableFilename);
-    const downloadedLibbinaryen = path.resolve(unpackedLibFolder, 'libbinaryen.dylib');
+    const downloadedLibbinaryen = path.resolve(unpackedLibFolder, libName[platform]);
     const outputWasmOpt = path.resolve(__dirname, await getExecutableFilename());
-    const outputLibbinaryen = path.resolve(__dirname, '../lib/libbinaryen.dylib');
+    const outputLibbinaryen = path.resolve(__dirname, `../${libFolder}/${libName[platform]}`);
 
-    await mkdir(path.resolve(__dirname, '../lib'));
+    await mkdir(path.resolve(__dirname, `../${libFolder}`));
 
     await copyFile(downloadedWasmOpt, outputWasmOpt);
     await copyFile(downloadedLibbinaryen, outputLibbinaryen);
