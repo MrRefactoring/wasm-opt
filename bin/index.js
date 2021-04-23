@@ -88,7 +88,7 @@ async function main() {
     });
 
     const libName = {
-      windows: 'binaryen.lib',
+      win32: 'binaryen.lib',
       linux: 'libbinaryen.a',
       darwin: 'libbinaryen.dylib',
     };
