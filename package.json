@@ -1,7 +1,7 @@
 {
   "name": "wasm-opt",
   "description": "Makes it possible to call wasm-opt in your project",
-  "version": "1.39.1-beta.1",
+  "version": "1.2.0",
   "main": "bin/wasm-opt.js",
   "bin": {
     "wasm-opt": "bin/wasm-opt.js"
@@ -12,21 +12,22 @@
     "wasm",
     "wasm-opt"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
-  },
+  "files": [
+    "bin/index.js",
+    "bin/wasm-opt.js"
+  ],
+  "repository": "https://github.com/MrRefactoring/wasm-opt.git",
   "scripts": {
-    "prepublishOnly": "yarn lint",
+    "prepublishOnly": "rm -rf bin/wasm-opt && npm run lint",
     "postinstall": "node bin/index.js",
     "lint": "eslint ./bin --ext .js",
-    "lint:fix": "yarn lint --fix"
+    "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {
-    "eslint": "^6.8.0"
+    "eslint": "^7.24.0"
   },
   "dependencies": {
-    "node-fetch": "^2.6.0",
-    "tar": "^6.0.2"
+    "node-fetch": "^2.6.1",
+    "tar": "^6.1.0"
   }
 }
