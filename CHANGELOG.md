@@ -1,5 +1,9 @@
 # Changelog
 
+### 1.2.1
+
+- Vulnerabilities fixed
+
 ### 1.2.0
 
 - Updated to `wasm-opt` version 101

@@ -1,7 +1,7 @@
 {
   "name": "wasm-opt",
   "description": "Makes it possible to call wasm-opt in your project",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "main": "bin/wasm-opt.js",
   "bin": {
     "wasm-opt": "bin/wasm-opt.js"
@@ -24,10 +24,10 @@
     "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {
-    "eslint": "^7.24.0"
+    "eslint": "^7.32.0"
   },
   "dependencies": {
-    "node-fetch": "^2.6.1",
-    "tar": "^6.1.0"
+    "node-fetch": "^2.6.2",
+    "tar": "^6.1.11"
   }
 }
