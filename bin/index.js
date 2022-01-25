@@ -97,7 +97,7 @@ async function main() {
       darwin: 'libbinaryen.dylib',
     };
 
-    const libFolder = platform === 'linux' ? 'lib64' : 'lib';
+    const libFolder = 'lib';
 
     const unpackedFolder = path.resolve(__dirname, '..', await getUnpackedFolderName());
     const unpackedLibFolder = path.resolve(unpackedFolder, libFolder);
