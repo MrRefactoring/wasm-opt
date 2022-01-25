@@ -19,22 +19,25 @@ const platform = process.platform;
  */
 async function getUrl() {
   const { arch } = process;
-  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/version_101';
+  const baseURL = 'https://github.com/WebAssembly/binaryen/releases/download/version_105';
 
   switch (platform) {
     case 'win32':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-version_101-x86_64-windows.tar.gz`;
+        return `${baseURL}/binaryen-version_105-x86_64-windows.tar.gz`;
       }
       break;
     case 'darwin':
+      if (arch === 'arm64') {
+        return `${baseURL}/binaryen-version_105-arm64-macos.tar.gz`;
+      }
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-version_101-x86_64-macos.tar.gz`;
+        return `${baseURL}/binaryen-version_105-x86_64-macos.tar.gz`;
       }
       break;
     case 'linux':
       if (arch === 'x64') {
-        return `${baseURL}/binaryen-version_101-x86_64-linux.tar.gz`;
+        return `${baseURL}/binaryen-version_105-x86_64-linux.tar.gz`;
       }
       break;
   }
@@ -57,7 +60,7 @@ async function getExecutableFilename() {
  * @returns {Promise<string>} unpack folder name
  */
 async function getUnpackedFolderName() {
-  return 'binaryen-version_101';
+  return 'binaryen-version_105';
 }
 
 /**
