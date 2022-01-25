@@ -10,7 +10,7 @@ const rmdir = promisify(fs.rmdir);
 const unlink = promisify(fs.unlink);
 const writeFile = promisify(fs.writeFile);
 
-const platform = process.platform;
+const { platform } = process;
 
 /**
  * Creates URL for wasm-opt binary

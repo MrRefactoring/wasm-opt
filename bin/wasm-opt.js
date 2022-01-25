@@ -3,7 +3,7 @@
 const path = require('path');
 const cp = require('child_process');
 
-const platform = process.platform;
+const { platform } = process;
 
 const rootDir = path.resolve(__dirname, './wasm-opt' + (platform === 'win32' ? '.exe' : ''));
 

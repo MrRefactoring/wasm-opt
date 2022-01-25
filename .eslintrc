@@ -4,6 +4,7 @@
   },
   "rules": {
     "require-jsdoc": "error",
-    "linebreak-style": ["error", "unix"]
+    "linebreak-style": ["error", "unix"],
+    "no-trailing-spaces": "error"
   }
 }
