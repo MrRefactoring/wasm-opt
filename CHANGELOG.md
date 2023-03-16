@@ -1,5 +1,9 @@
 # Changelog
 
+### UNRELEASED
+
+- Updated to `wasm-opt` version 112
+
 ### 1.3.0
 
 - Updated to `wasm-opt` version 105
