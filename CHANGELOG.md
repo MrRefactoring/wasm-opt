@@ -1,6 +1,6 @@
 # Changelog
 
-### UNRELEASED
+### 1.4.0
 
 - Updated to `wasm-opt` version 112
 
@@ -17,7 +17,7 @@
 - Updated to `wasm-opt` version 101
 
 ### 1.1.0
-- Added linux and macOs support
+- Added linux and macOS support
 
 ### 1.0.0
 - Release

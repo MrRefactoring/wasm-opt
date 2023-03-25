@@ -9,15 +9,16 @@ const copyFile = promisify(fs.copyFile);
 const rmdir = promisify(fs.rmdir);
 const unlink = promisify(fs.unlink);
 const writeFile = promisify(fs.writeFile);
+const exists = promisify(fs.exists);
 
 const { platform } = process;
 
 const BINARYEN_VERSION = 112;
 
 /**
- * Creates URL for wasm-opt binary
- *
- * @returns {Promise<string>} binary url
+ * Creates a URL for the wasm-opt binary based on the current operating system and architecture.
+ * @throws {Error} If the platform is not supported
+ * @returns {Promise<string>} The binary URL
  */
 async function getUrl() {
   const { arch } = process;
@@ -48,25 +49,30 @@ async function getUrl() {
 }
 
 /**
- * Returns wasm-opt or wasm-opt.exe string
- *
- * @returns {Promise<string>} name
+ * Returns the filename of the wasm-opt executable depending on the platform.
+ * @async
+ * @returns {Promise<string>} The filename of the wasm-opt executable.
  */
 async function getExecutableFilename() {
   return platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt';
 }
 
 /**
- * Returns unpack folder name
- *
- * @returns {Promise<string>} unpack folder name
+ * Get the name of the folder containing the unpacked Binaryen distribution archive.
+ * @async
+ * @function
+ * @returns {Promise<string>} The name of the unpacked folder, in the format binaryen-version_X.Y.Z.
  */
 async function getUnpackedFolderName() {
   return `binaryen-version_${BINARYEN_VERSION}`;
 }
 
 /**
- * Downloads binaries
+ * Downloads and extracts Binaryen binaries, including wasm-opt and libbinaryen.
+ *
+ * @throws {Error} If an error occurs during the download or extraction process.
+ *
+ * @returns {Promise<void>}
  */
 async function main() {
   try {
@@ -109,7 +115,11 @@ async function main() {
     const outputWasmOpt = path.resolve(__dirname, await getExecutableFilename());
     const outputLibbinaryen = path.resolve(__dirname, `../${libFolder}/${libName[platform]}`);
 
-    await mkdir(path.resolve(__dirname, `../${libFolder}`));
+    const outFolder = path.resolve(__dirname, `../${libFolder}`);
+
+    if (!(await exists(outFolder))) {
+      await mkdir(outFolder);
+    }
 
     await copyFile(downloadedWasmOpt, outputWasmOpt);
     await copyFile(downloadedLibbinaryen, outputLibbinaryen);
