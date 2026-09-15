@@ -1,0 +1,136 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readIntegrity } from '../../src/core/cache.ts';
+import { currentTarget, WASM_TARGET } from '../../src/core/platform.ts';
+import { resolveBinarySync } from '../../src/core/resolve.ts';
+import { ChecksumMismatchError } from '../../src/errors.ts';
+import { installBinary } from '../../src/install.ts';
+
+const TARBALL = readFileSync('test/fixtures/binaryen-stub.tar.gz');
+const DIGEST = 'cbf310dad3c30c32ab7d275d23557f7fe885ec79f39328dfbc0293471ba7c163';
+
+const target = currentTarget() ?? WASM_TARGET;
+
+let server: Server | undefined;
+let cacheHome = '';
+let workDir = '';
+let requests = 0;
+
+async function serveArchive(digest: string): Promise<string> {
+  requests = 0;
+
+  server = createServer((request, response) => {
+    requests += 1;
+
+    if (request.url?.endsWith('.sha256')) {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end(`${digest}  binaryen.tar.gz\n`);
+      return;
+    }
+
+    response.writeHead(200, { 'content-type': 'application/gzip' });
+    response.end(TARBALL);
+  });
+
+  await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  return `http://127.0.0.1:${port}/binaryen.tar.gz`;
+}
+
+beforeEach(async () => {
+  cacheHome = await mkdtemp(join(tmpdir(), 'wasm-opt-cache-'));
+  workDir = await mkdtemp(join(tmpdir(), 'wasm-opt-cwd-'));
+});
+
+afterEach(async () => {
+  await new Promise<void>((resolve) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.close(() => resolve());
+  });
+
+  server = undefined;
+  await rm(cacheHome, { recursive: true, force: true });
+  await rm(workDir, { recursive: true, force: true });
+});
+
+function env(url: string): NodeJS.ProcessEnv {
+  return {
+    WASM_OPT_VERSION: '999',
+    WASM_OPT_CACHE_DIR: cacheHome,
+    WASM_OPT_BINARY_URL: url,
+  };
+}
+
+describe('installer', () => {
+  it('installs only the executable and shared libraries', async () => {
+    const url = await serveArchive(DIGEST);
+    const result = await installBinary({ env: env(url) });
+
+    expect(result.fromCache).toBe(false);
+    expect(result.version).toBe('999');
+
+    const dir = join(cacheHome, '999', target.key);
+    expect(existsSync(join(dir, 'bin', target.executable))).toBe(true);
+
+    const libraries = await readdir(join(dir, 'lib'));
+    expect(libraries).toContain('libbinaryen.dylib');
+    expect(libraries).not.toContain('libbinaryen.a');
+    expect(libraries).not.toContain('binaryen.lib');
+  });
+
+  it('records per-file digests and verifies them on the next run', async () => {
+    const url = await serveArchive(DIGEST);
+    await installBinary({ env: env(url) });
+
+    const before = requests;
+    const second = await installBinary({ env: env(url) });
+
+    expect(second.fromCache).toBe(true);
+    expect(requests).toBe(before);
+
+    const integrity = readIntegrity(join(cacheHome, '999', target.key));
+    expect(integrity?.tarballSha256).toBe(DIGEST);
+    expect(Object.keys(integrity?.files ?? {})).toContain(`bin/${target.executable}`);
+  });
+
+  it('rejects an archive whose digest does not match the published checksum', async () => {
+    const url = await serveArchive('0'.repeat(64));
+
+    await expect(installBinary({ env: env(url) })).rejects.toBeInstanceOf(ChecksumMismatchError);
+    expect(existsSync(join(cacheHome, '999', target.key, 'bin'))).toBe(false);
+  });
+
+  it('leaves the working directory untouched whatever the cwd is', async () => {
+    const url = await serveArchive(DIGEST);
+    const previous = process.cwd();
+
+    try {
+      process.chdir(workDir);
+      await installBinary({ env: env(url) });
+    } finally {
+      process.chdir(previous);
+    }
+
+    expect(await readdir(workDir)).toEqual([]);
+  });
+
+  it('makes the installed binary discoverable from the cache', async () => {
+    const url = await serveArchive(DIGEST);
+    await installBinary({ env: env(url) });
+
+    const info = resolveBinarySync({
+      env: { WASM_OPT_VERSION: '999', WASM_OPT_CACHE_DIR: cacheHome },
+    });
+
+    expect(info.source).toBe('cache');
+    expect(info.version).toBe('999');
+  });
+});

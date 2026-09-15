@@ -1,33 +1,70 @@
 {
   "name": "wasm-opt",
-  "description": "Makes it possible to call wasm-opt in your project",
-  "version": "1.4.1",
-  "main": "bin/wasm-opt.js",
-  "bin": {
-    "wasm-opt": "bin/wasm-opt.js"
-  },
-  "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
-  "license": "MIT",
+  "version": "2.0.0",
+  "description": "Native wasm-opt from Binaryen, delivered as a platform package",
   "keywords": [
     "wasm",
-    "wasm-opt"
+    "wasm-opt",
+    "binaryen",
+    "webassembly",
+    "optimize"
   ],
-  "files": [
-    "bin/index.js",
-    "bin/wasm-opt.js"
-  ],
-  "repository": "https://github.com/MrRefactoring/wasm-opt.git",
-  "scripts": {
-    "prepublishOnly": "rm -rf bin/wasm-opt && npm run lint",
-    "postinstall": "node bin/index.js",
-    "lint": "eslint ./bin --ext .js",
-    "lint:fix": "npm run lint -- --fix"
+  "homepage": "https://github.com/MrRefactoring/wasm-opt#readme",
+  "bugs": "https://github.com/MrRefactoring/wasm-opt/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
   },
-  "devDependencies": {
-    "eslint": "^8.45.0"
+  "license": "MIT",
+  "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "wasm-opt": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:e2e": "vitest run --project e2e",
+    "check:package": "publint && attw --pack . --profile esm-only",
+    "packages:build": "node tools/build-platform-packages.ts",
+    "prepublishOnly": "pnpm build && pnpm check:package"
   },
   "dependencies": {
-    "node-fetch": "^2.6.12",
-    "tar": "^6.1.15"
+    "tar": "^7.5.22"
+  },
+  "optionalDependencies": {
+    "@wasm-opt/darwin-arm64": "2.0.0",
+    "@wasm-opt/linux-arm64": "2.0.0",
+    "@wasm-opt/linux-x64": "2.0.0",
+    "@wasm-opt/win32-arm64": "2.0.0",
+    "@wasm-opt/win32-x64": "2.0.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "^2.5.13",
+    "@changesets/cli": "^3.0.3",
+    "@types/node": "^26.5.1",
+    "publint": "^0.3.24",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }

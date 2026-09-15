@@ -1,0 +1,118 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { cacheRoot } from '../../src/core/cache.ts';
+import { findOnPath, resolveBinarySync } from '../../src/core/resolve.ts';
+import { VersionUnavailableError } from '../../src/errors.ts';
+
+function emptyProject(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'wasm-opt-resolve-'));
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'consumer' }));
+  return dir;
+}
+
+describe('resolution order', () => {
+  it('lets WASM_OPT_PATH win over everything else', () => {
+    const dir = emptyProject();
+    const fake = join(dir, 'my-wasm-opt');
+    writeFileSync(fake, '');
+
+    const info = resolveBinarySync({ cwd: dir, env: { WASM_OPT_PATH: fake } });
+
+    expect(info.source).toBe('env');
+    expect(info.path).toBe(fake);
+    expect(info.command).toBe(fake);
+  });
+
+  it('runs a .js override through the current Node executable', () => {
+    const dir = emptyProject();
+    const fake = join(dir, 'wasm-opt.js');
+    writeFileSync(fake, '');
+
+    const info = resolveBinarySync({ cwd: dir, env: { WASM_OPT_PATH: fake } });
+
+    expect(info.kind).toBe('wasm');
+    expect(info.command).toBe(process.execPath);
+    expect(info.args).toEqual([fake]);
+  });
+
+  it('ignores WASM_OPT_PATH when the file is missing', () => {
+    const dir = emptyProject();
+
+    expect(() =>
+      resolveBinarySync({
+        cwd: dir,
+        env: {
+          WASM_OPT_PATH: join(dir, 'absent'),
+          WASM_OPT_VERSION: '111',
+          WASM_OPT_CACHE_DIR: join(dir, 'cache'),
+          PATH: '',
+        },
+      }),
+    ).toThrow(VersionUnavailableError);
+  });
+
+  it('refuses to substitute a different version for the one requested', () => {
+    const dir = emptyProject();
+
+    expect(() =>
+      resolveBinarySync({
+        cwd: dir,
+        env: { WASM_OPT_VERSION: '111', WASM_OPT_CACHE_DIR: join(dir, 'cache'), PATH: '' },
+      }),
+    ).toThrow(VersionUnavailableError);
+  });
+
+  it('reports the requested and the shipped version in the message', () => {
+    const dir = emptyProject();
+
+    try {
+      resolveBinarySync({
+        cwd: dir,
+        env: { WASM_OPT_VERSION: '111', WASM_OPT_CACHE_DIR: join(dir, 'cache'), PATH: '' },
+      });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as Error).message).toMatch(/111/);
+      expect((error as Error).message).toMatch(/132/);
+    }
+  });
+
+  it('never picks a shim out of node_modules/.bin', () => {
+    const dir = emptyProject();
+    const shimDir = join(dir, 'node_modules', '.bin');
+    mkdirSync(shimDir, { recursive: true });
+    writeFileSync(join(shimDir, 'wasm-opt'), '');
+    writeFileSync(join(shimDir, 'wasm-opt.exe'), '');
+
+    expect(findOnPath({ PATH: shimDir })).toBeNull();
+  });
+
+  it('accepts a genuine system binary on PATH', () => {
+    const dir = emptyProject();
+    const binDir = join(dir, 'usr-local-bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, process.platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt'), '');
+
+    const found = findOnPath({ PATH: binDir });
+
+    expect(found?.source).toBe('path');
+    expect(found?.version).toBeNull();
+  });
+
+  it('returns nothing when PATH is empty', () => {
+    expect(findOnPath({ PATH: '' })).toBeNull();
+    expect(findOnPath({})).toBeNull();
+  });
+});
+
+describe('cache location', () => {
+  it('honours WASM_OPT_CACHE_DIR', () => {
+    expect(cacheRoot({ WASM_OPT_CACHE_DIR: '/custom' })).toBe('/custom');
+  });
+
+  it('follows XDG_CACHE_HOME elsewhere', () => {
+    expect(cacheRoot({ XDG_CACHE_HOME: '/xdg' })).toBe(join('/xdg', 'wasm-opt'));
+  });
+});
