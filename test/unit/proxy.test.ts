@@ -33,17 +33,19 @@ function tunnellingProxy(seen: string[]): Server {
 
   server.on('connect', (request, socket, head) => {
     seen.push(request.url ?? '');
+    socket.pause();
 
     const [host, port] = (request.url ?? '').split(':');
     const upstream = connect(Number(port), host, () => {
-      socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+      socket.write('HTTP/1.1 200 Connection Established\r\n\r\n', () => {
+        if (head.length > 0) {
+          upstream.write(head);
+        }
 
-      if (head.length > 0) {
-        upstream.write(head);
-      }
-
-      upstream.pipe(socket);
-      socket.pipe(upstream);
+        upstream.pipe(socket);
+        socket.pipe(upstream);
+        socket.resume();
+      });
     });
 
     upstream.on('error', () => socket.destroy());
