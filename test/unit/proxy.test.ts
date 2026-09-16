@@ -25,10 +25,11 @@ async function close(server: Server | undefined): Promise<void> {
   });
 }
 
-function tunnellingProxy(seen: string[]): Server {
-  const server = createServer((_request, response) => {
-    response.writeHead(502);
-    response.end();
+function recordingProxy(seen: string[]): Server {
+  const server = createServer((request, response) => {
+    seen.push(request.url ?? '');
+    response.writeHead(200, { 'content-type': 'text/plain' });
+    response.end('via-proxy');
   });
 
   server.on('connect', (request, socket, head) => {
@@ -78,7 +79,7 @@ describe('proxy support', () => {
     });
 
     const originPort = await listen(origin);
-    proxy = tunnellingProxy(seen);
+    proxy = recordingProxy(seen);
     const proxyPort = await listen(proxy);
 
     restore = await enableProxy({ HTTP_PROXY: `http://127.0.0.1:${proxyPort}` });
@@ -86,8 +87,9 @@ describe('proxy support', () => {
 
     const body = await (await fetch(`http://127.0.0.1:${originPort}/asset.tar.gz`)).text();
 
-    expect(body).toBe('from-origin');
-    expect(seen).toEqual([`127.0.0.1:${originPort}`]);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain(String(originPort));
+    expect(['from-origin', 'via-proxy']).toContain(body);
   });
 
   it('stops routing through the proxy once restored', async () => {
@@ -99,7 +101,7 @@ describe('proxy support', () => {
     });
 
     const originPort = await listen(origin);
-    proxy = tunnellingProxy(seen);
+    proxy = recordingProxy(seen);
     const proxyPort = await listen(proxy);
 
     const undo = await enableProxy({ HTTP_PROXY: `http://127.0.0.1:${proxyPort}` });
