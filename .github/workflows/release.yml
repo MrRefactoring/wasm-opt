@@ -25,7 +25,7 @@ jobs:
           cache: pnpm
 
       - name: Use an npm release that supports trusted publishing
-        run: npm install --global npm@latest
+        run: npm install --global npm@^12
 
       - run: pnpm install --frozen-lockfile
 
