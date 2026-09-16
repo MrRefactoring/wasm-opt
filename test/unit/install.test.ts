@@ -1,14 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { appendFile, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readIntegrity } from '../../src/core/cache.ts';
+import { fileChecksum } from '../../src/core/download.ts';
 import { currentTarget, WASM_TARGET } from '../../src/core/platform.ts';
 import { resolveBinarySync } from '../../src/core/resolve.ts';
-import { ChecksumMismatchError } from '../../src/errors.ts';
+import { ChecksumMismatchError, VersionUnavailableError } from '../../src/errors.ts';
 import { installBinary } from '../../src/install.ts';
 
 const TARBALL = readFileSync('test/fixtures/binaryen-stub.tar.gz');
@@ -120,6 +121,43 @@ describe('installer', () => {
     }
 
     expect(await readdir(workDir)).toEqual([]);
+  });
+
+  it('re-downloads instead of failing when a cached file was tampered with', async () => {
+    const url = await serveArchive(DIGEST);
+    await installBinary({ env: env(url) });
+
+    const binary = join(cacheHome, '999', target.key, 'bin', target.executable);
+    await appendFile(binary, 'tampered');
+
+    const before = requests;
+    const repaired = await installBinary({ env: env(url) });
+
+    expect(repaired.fromCache).toBe(false);
+    expect(requests).toBeGreaterThan(before);
+
+    const integrity = readIntegrity(join(cacheHome, '999', target.key));
+    expect(await fileChecksum(binary)).toBe(integrity?.files[`bin/${target.executable}`]);
+  });
+
+  it('serves WASM_OPT_VERSION=latest from whatever the cache already holds', async () => {
+    const url = await serveArchive(DIGEST);
+    await installBinary({ env: env(url) });
+
+    const info = resolveBinarySync({
+      env: { WASM_OPT_VERSION: 'latest', WASM_OPT_CACHE_DIR: cacheHome },
+    });
+
+    expect(info.source).toBe('cache');
+    expect(info.version).toBe('999');
+  });
+
+  it('explains what to do when latest was asked for and nothing is cached', async () => {
+    expect(() =>
+      resolveBinarySync({
+        env: { WASM_OPT_VERSION: 'latest', WASM_OPT_CACHE_DIR: join(cacheHome, 'empty'), PATH: '' },
+      }),
+    ).toThrow(VersionUnavailableError);
   });
 
   it('makes the installed binary discoverable from the cache', async () => {

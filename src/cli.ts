@@ -3,7 +3,12 @@ import { spawnSync } from 'node:child_process';
 import { styleText } from 'node:util';
 import { currentTarget, describePlatform, unsupportedReason } from './core/platform.ts';
 import { resolveBinarySync } from './core/resolve.ts';
-import { VersionUnavailableError, WasmOptError } from './errors.ts';
+import {
+  BinaryNotFoundError,
+  UnsupportedPlatformError,
+  VersionUnavailableError,
+  WasmOptError,
+} from './errors.ts';
 
 const DOCS = 'https://github.com/MrRefactoring/wasm-opt#troubleshooting';
 const OWN_FLAGS = new Set(['--wasm-opt-info', '--wasm-opt-install']);
@@ -44,6 +49,10 @@ function troubleshooting(): string {
 function explain(error: unknown): string {
   const headline = error instanceof Error ? error.message : String(error);
 
+  if (error instanceof BinaryNotFoundError || error instanceof UnsupportedPlatformError) {
+    return `${paint('red', 'wasm-opt:')} ${headline}\n\n${troubleshooting()}`;
+  }
+
   if (error instanceof VersionUnavailableError) {
     return [
       `${paint('red', 'wasm-opt:')} ${headline}`,
@@ -57,7 +66,15 @@ function explain(error: unknown): string {
   }
 
   if (error instanceof WasmOptError) {
-    return `${paint('red', 'wasm-opt:')} ${headline}\n\n${troubleshooting()}`;
+    return [
+      `${paint('red', 'wasm-opt:')} ${headline}`,
+      '',
+      'Try one of:',
+      '  WASM_OPT_FORCE=1 npx wasm-opt --wasm-opt-install   # discard what is cached and fetch again',
+      '  WASM_OPT_PATH=/path/to/wasm-opt                    # use an existing binary',
+      '',
+      DOCS,
+    ].join('\n');
   }
 
   return `${paint('red', 'wasm-opt:')} ${headline}`;
@@ -89,11 +106,14 @@ try {
   fail(explain(error));
 }
 
-const result = spawnSync(binary.command, [...binary.args, ...argv], { stdio: 'inherit' });
+const result = spawnSync(binary.command, [...binary.args, ...argv], {
+  stdio: 'inherit',
+  env: { ...process.env, WASM_OPT_CHILD: '1' },
+});
 
 if (result.error) {
   fail(
-    `${paint('red', 'wasm-opt:')} failed to run ${binary.path} on ${describePlatform()}: ${result.error.message}\n\n${troubleshooting()}`,
+    `${paint('red', 'wasm-opt:')} failed to run ${binary.path} on ${describePlatform()}: ${result.error.message}`,
   );
 }
 

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { ChecksumMismatchError, DownloadError } from '../errors.ts';
@@ -58,6 +58,35 @@ export function applyProxyFromEnvironment(env: NodeJS.ProcessEnv = process.env):
   if (!env.NO_PROXY && !env.no_proxy && env.npm_config_noproxy) {
     env.NO_PROXY = env.npm_config_noproxy;
   }
+}
+
+export async function enableProxy(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<(() => void) | null> {
+  applyProxyFromEnvironment(env);
+
+  if (!env.HTTPS_PROXY && !env.https_proxy && !env.HTTP_PROXY && !env.http_proxy) {
+    return null;
+  }
+
+  if (env !== process.env) {
+    for (const key of ['HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY'] as const) {
+      const value = env[key];
+
+      if (value && !process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  }
+
+  const http = await import('node:http');
+
+  if (typeof http.setGlobalProxyFromEnv !== 'function') {
+    return null;
+  }
+
+  const restore: unknown = http.setGlobalProxyFromEnv();
+  return typeof restore === 'function' ? (restore as () => void) : () => {};
 }
 
 function timeoutMs(env: NodeJS.ProcessEnv): number {
@@ -208,7 +237,6 @@ export async function downloadTarball(
 }
 
 export async function fileChecksum(path: string): Promise<string> {
-  const { createReadStream } = await import('node:fs');
   const hash = createHash('sha256');
   await pipeline(createReadStream(path), hash);
   return hash.digest('hex');

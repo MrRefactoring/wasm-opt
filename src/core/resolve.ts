@@ -1,8 +1,12 @@
-import { existsSync, realpathSync } from 'node:fs';
-import { delimiter, dirname, join, sep } from 'node:path';
+import { existsSync, readdirSync, realpathSync } from 'node:fs';
+import { delimiter, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BinaryNotFoundError, VersionUnavailableError } from '../errors.ts';
-import { cacheDir, readIntegrity } from './cache.ts';
+import {
+  BinaryNotFoundError,
+  UnsupportedPlatformError,
+  VersionUnavailableError,
+} from '../errors.ts';
+import { cacheDir, cacheRoot, readIntegrity } from './cache.ts';
 import {
   currentTarget,
   describePlatform,
@@ -47,15 +51,29 @@ function fromEnv(env: NodeJS.ProcessEnv): BinaryInfo | null {
   return toInfo(explicit, kind, 'env', null, null);
 }
 
-function fromCache(target: Target, version: string, env: NodeJS.ProcessEnv): BinaryInfo | null {
-  const dir = cacheDir(version, target.key, env);
-  const binary = join(dir, 'bin', target.executable);
+function cachedVersions(env: NodeJS.ProcessEnv): string[] {
+  try {
+    return readdirSync(cacheRoot(env))
+      .filter((name) => /^\d+$/.test(name))
+      .sort((a, b) => Number(b) - Number(a));
+  } catch {
+    return [];
+  }
+}
 
-  if (!existsSync(binary) || readIntegrity(dir) === null) {
-    return null;
+function fromCache(target: Target, version: string, env: NodeJS.ProcessEnv): BinaryInfo | null {
+  const candidates = version === 'latest' ? cachedVersions(env) : [version];
+
+  for (const candidate of candidates) {
+    const dir = cacheDir(candidate, target.key, env);
+    const binary = join(dir, 'bin', target.executable);
+
+    if (existsSync(binary) && readIntegrity(dir) !== null) {
+      return toInfo(binary, target, 'cache', candidate, null);
+    }
   }
 
-  return toInfo(binary, target, 'cache', version, null);
+  return null;
 }
 
 function fromPackage(target: Target): BinaryInfo | null {
@@ -73,9 +91,9 @@ function fromPackage(target: Target): BinaryInfo | null {
     : null;
 }
 
-function selfPath(): string | null {
+function ownDirectory(): string | null {
   try {
-    return realpathSync(fileURLToPath(import.meta.url));
+    return realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
   } catch {
     return null;
   }
@@ -84,13 +102,13 @@ function selfPath(): string | null {
 export function findOnPath(env: NodeJS.ProcessEnv): BinaryInfo | null {
   const raw = env.PATH ?? env.Path;
 
-  if (!raw) {
+  if (!raw || env.WASM_OPT_CHILD === '1') {
     return null;
   }
 
   const shimDir = `${sep}node_modules${sep}.bin`;
   const executable = process.platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt';
-  const self = selfPath();
+  const own = ownDirectory();
 
   for (const entry of raw.split(delimiter)) {
     if (!entry || entry.includes(shimDir)) {
@@ -104,14 +122,14 @@ export function findOnPath(env: NodeJS.ProcessEnv): BinaryInfo | null {
     }
 
     try {
-      if (self !== null && realpathSync(candidate) === self) {
+      const real = realpathSync(candidate);
+
+      if (own !== null && (real === own || real.startsWith(own + sep))) {
         continue;
       }
-    } catch {
-      continue;
-    }
 
-    return toInfo(candidate, { kind: 'native' }, 'path', null, null);
+      return toInfo(real, { kind: 'native' }, 'path', null, null);
+    } catch {}
   }
 
   return null;
@@ -157,21 +175,23 @@ export function resolveBinarySync(
     }
   }
 
+  if (requested.version === 'latest') {
+    throw new VersionUnavailableError(
+      `The newest Binaryen release was requested via ${requested.source}, but no release has been downloaded yet. Resolving "latest" needs the GitHub API, which the CLI never calls on its own.`,
+    );
+  }
+
   if (requested.version !== BINARYEN_VERSION) {
     throw new VersionUnavailableError(
       `Binaryen ${requested.version} was requested via ${requested.source} but is not available locally (this build of wasm-opt ships ${BINARYEN_VERSION}).`,
     );
   }
 
-  throw new BinaryNotFoundError(
-    native
-      ? `No native wasm-opt binary found for ${describePlatform()}.`
-      : `No wasm-opt binary available for ${describePlatform()}. ${unsupportedReason()}`,
-  );
-}
+  if (!native) {
+    throw new UnsupportedPlatformError(
+      `No wasm-opt binary available for ${describePlatform()}. ${unsupportedReason()}`,
+    );
+  }
 
-export async function resolveBinary(
-  options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
-): Promise<BinaryInfo> {
-  return resolveBinarySync(options);
+  throw new BinaryNotFoundError(`No native wasm-opt binary found for ${describePlatform()}.`);
 }

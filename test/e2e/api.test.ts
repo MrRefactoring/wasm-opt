@@ -43,3 +43,24 @@ describe('programmatic api', () => {
     await expect(optimize(Buffer.from('not a wasm module'))).rejects.toThrow(/wasm-opt exited/);
   });
 });
+
+describe('api robustness', () => {
+  it('does not crash the host process when the child ignores stdin', async () => {
+    const result = await wasmOpt(['--version'], { stdin: Buffer.alloc(64 * 1024 * 1024) });
+
+    expect(result.status).toBe(0);
+    expect(Buffer.from(result.stdout).toString()).toContain('version');
+  });
+
+  it('rejects rather than throwing when the call is aborted', async () => {
+    await expect(wasmOpt(['--version'], { signal: AbortSignal.abort() })).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
+
+  it('keeps the child environment usable when env is supplied', async () => {
+    const result = await wasmOpt(['--version'], { env: { WASM_OPT_MARKER: '1' } });
+
+    expect(result.status).toBe(0);
+  });
+});

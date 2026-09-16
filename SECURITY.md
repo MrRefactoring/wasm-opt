@@ -27,8 +27,12 @@ If the problem is in the `wasm-opt` optimiser itself rather than in this wrapper
   `https://github.com/WebAssembly/binaryen/releases/download/...` unless an operator sets
   `WASM_OPT_BINARY_URL` deliberately.
 - **Mandatory integrity checks.** Every archive is verified against the SHA-256 digest Binaryen
-  publishes alongside it before it is unpacked, and the digest of every installed file is recorded
-  and re-checked. There is no flag that disables this.
+  publishes alongside it before it is unpacked. There is no flag that disables this. The digest of
+  every installed file is recorded in `integrity.json` and re-checked on each
+  `wasm-opt --wasm-opt-install`; a mismatch discards the cached copy and downloads again. The CLI
+  does not re-hash the binary on every invocation, so a cache directory is trusted exactly as much
+  as any other executable on the filesystem — do not point `WASM_OPT_CACHE_DIR` at a location other
+  people can write to.
 - **Provenance.** All packages are published from GitHub Actions with npm provenance attestations,
   so the published artefact can be traced back to the commit and workflow that built it.
 - **One runtime dependency.** `tar`, and only on the explicit `--wasm-opt-install` path. The CLI

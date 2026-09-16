@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { cacheRoot } from '../../src/core/cache.ts';
 import { findOnPath, resolveBinarySync } from '../../src/core/resolve.ts';
@@ -104,6 +105,30 @@ describe('resolution order', () => {
   it('returns nothing when PATH is empty', () => {
     expect(findOnPath({ PATH: '' })).toBeNull();
     expect(findOnPath({})).toBeNull();
+  });
+});
+
+describe('self-invocation guard', () => {
+  it('refuses PATH lookup inside a child this package spawned', () => {
+    const dir = emptyProject();
+    const binDir = join(dir, 'usr-local-bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, process.platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt'), '');
+
+    expect(findOnPath({ PATH: binDir })).not.toBeNull();
+    expect(findOnPath({ PATH: binDir, WASM_OPT_CHILD: '1' })).toBeNull();
+  });
+
+  it('never returns a binary that lives inside this package', () => {
+    const own = dirname(fileURLToPath(import.meta.url));
+    const distLike = join(own, '..', '..', 'dist');
+
+    if (!existsSync(distLike)) {
+      return;
+    }
+
+    const found = findOnPath({ PATH: distLike });
+    expect(found).toBeNull();
   });
 });
 

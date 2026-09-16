@@ -115,3 +115,18 @@ describe('cli contract', () => {
     await rm(isolated, { recursive: true, force: true });
   });
 });
+
+describe('signal propagation', () => {
+  it.skipIf(process.platform === 'win32')('dies by the signal that killed the child', async () => {
+    const script = join(workDir, 'suicide.sh');
+    await writeFile(script, '#!/bin/sh\nkill -TERM $$\n', { mode: 0o755 });
+
+    const result = spawnSync(process.execPath, [CLI, 'anything'], {
+      encoding: 'buffer',
+      env: { ...process.env, WASM_OPT_PATH: script },
+    });
+
+    expect(result.signal).toBe('SIGTERM');
+    expect(result.status).toBeNull();
+  });
+});

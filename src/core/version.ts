@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, parse } from 'node:path';
 import { DownloadError, VersionUnavailableError } from '../errors.ts';
 
@@ -32,33 +32,53 @@ export function normalizeVersion(raw: string): string {
   return stripped;
 }
 
+function declaredVersion(manifest: string): string | null {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(readFileSync(manifest, 'utf8'));
+  } catch (error) {
+    throw new VersionUnavailableError(
+      `Could not read ${manifest} while resolving the Binaryen version.`,
+      { cause: error },
+    );
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || !('wasmOpt' in parsed)) {
+    return null;
+  }
+
+  const section = (parsed as { wasmOpt: unknown }).wasmOpt;
+
+  if (typeof section !== 'object' || section === null || !('version' in section)) {
+    return null;
+  }
+
+  const value = (section as { version: unknown }).version;
+  return typeof value === 'string' ? value : String(value);
+}
+
 function readPackageJsonVersion(cwd: string): string | null {
   let current = cwd;
 
   for (;;) {
-    try {
-      const raw = readFileSync(join(current, 'package.json'), 'utf8');
-      const parsed: unknown = JSON.parse(raw);
+    const manifest = join(current, 'package.json');
 
-      if (typeof parsed === 'object' && parsed !== null && 'wasmOpt' in parsed) {
-        const section = (parsed as { wasmOpt: unknown }).wasmOpt;
+    if (existsSync(manifest)) {
+      const declared = declaredVersion(manifest);
 
-        if (typeof section === 'object' && section !== null && 'version' in section) {
-          const value = (section as { version: unknown }).version;
-          return typeof value === 'string' ? value : String(value);
-        }
+      if (declared !== null) {
+        return declared;
       }
-
-      return null;
-    } catch {
-      const parent = dirname(current);
-
-      if (parent === current || parent === parse(current).root) {
-        return null;
-      }
-
-      current = parent;
     }
+
+    const parent = dirname(current);
+
+    if (parent === current || current === parse(current).root) {
+      return null;
+    }
+
+    current = parent;
   }
 }
 

@@ -105,7 +105,8 @@ never downloads anything on its own.
 
 ## Environment variables
 
-Each one also has an `npm_config_*` counterpart, so `npm config set wasm_opt_version 130` works too.
+`WASM_OPT_VERSION` also has an `npm_config_wasm_opt_version` counterpart, so
+`npm config set wasm_opt_version 130` works too.
 
 | Variable | Effect |
 | --- | --- |
@@ -129,6 +130,15 @@ The version can also be pinned from the consuming project:
 `WASM_OPT_VERSION=latest` is opt-in on purpose. Resolving it hits the GitHub API, which allows
 60 unauthenticated requests per hour per IP — a limit that any shared-NAT CI exhausts immediately —
 and it makes builds non-reproducible.
+
+Because the CLI never calls the network on its own, `latest` has to be fetched once explicitly:
+
+```sh
+WASM_OPT_VERSION=latest npx wasm-opt --wasm-opt-install
+```
+
+After that the CLI serves `latest` from the newest release in the cache. Until then it exits `1`
+rather than quietly running the version that happens to be installed.
 
 ## How integrity is verified
 
@@ -154,7 +164,8 @@ ${XDG_CACHE_HOME:-~/.cache}/wasm-opt/<version>/<platform>-<arch>/
 ```
 
 Each directory holds `bin/`, `lib/` and `integrity.json`. A cache hit performs no network access at
-all.
+all. `--wasm-opt-install` re-checks the recorded digests and re-downloads if anything has changed;
+the CLI itself trusts the cache, so keep `WASM_OPT_CACHE_DIR` somewhere only you can write.
 
 ## Troubleshooting
 
@@ -183,8 +194,9 @@ Allowlist both `github.com` and `objects.githubusercontent.com`; release assets 
 latter.
 
 `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` are honoured, as are npm's own `proxy`, `https-proxy` and
-`noproxy` settings when the command runs through npm. Proxy support uses
-`http.setGlobalProxyFromEnv()`, which needs Node.js 24.14.0 or newer.
+`noproxy` settings when the command runs through npm. Proxy support is installed for the duration of
+the download through `http.setGlobalProxyFromEnv()`, which needs Node.js 24.14.0 or newer, and is
+torn down again afterwards.
 
 A custom certificate authority cannot be configured at runtime; start Node with
 `NODE_EXTRA_CA_CERTS=/path/to/ca.pem`. If the proxy answers with an HTML login page instead of the

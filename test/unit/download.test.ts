@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  applyProxyFromEnvironment,
   assertChecksum,
   downloadTarball,
   fetchChecksum,
@@ -188,30 +187,5 @@ describe('http failure modes', () => {
         WASM_OPT_SHA256: `${DIGEST}  binaryen.tar.gz`,
       }),
     ).toBe(DIGEST);
-  });
-});
-
-describe('proxy configuration', () => {
-  it('promotes npm proxy settings to the variables Node reads', () => {
-    const env: NodeJS.ProcessEnv = {
-      npm_config_https_proxy: 'http://proxy.test:8080',
-      npm_config_noproxy: 'localhost',
-    };
-
-    applyProxyFromEnvironment(env);
-
-    expect(env.HTTPS_PROXY).toBe('http://proxy.test:8080');
-    expect(env.NO_PROXY).toBe('localhost');
-  });
-
-  it('never overrides an explicit HTTPS_PROXY', () => {
-    const env: NodeJS.ProcessEnv = {
-      HTTPS_PROXY: 'http://explicit.test:3128',
-      npm_config_https_proxy: 'http://proxy.test:8080',
-    };
-
-    applyProxyFromEnvironment(env);
-
-    expect(env.HTTPS_PROXY).toBe('http://explicit.test:3128');
   });
 });

@@ -48,7 +48,7 @@ export async function wasmOpt(
   return new Promise<WasmOptResult>((resolve, reject) => {
     const child = spawn(binary.command, [...binary.args, ...args], {
       ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-      ...(options.env === undefined ? {} : { env: options.env }),
+      env: { ...process.env, ...options.env, WASM_OPT_CHILD: '1' },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -58,6 +58,7 @@ export async function wasmOpt(
 
     child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
+    child.stdin.on('error', () => {});
 
     child.once('error', reject);
 

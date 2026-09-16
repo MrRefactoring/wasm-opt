@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -44,9 +44,26 @@ describe('version precedence', () => {
     expect(resolved).toEqual({ version: BINARYEN_VERSION, source: 'pinned', explicit: false });
   });
 
-  it('stops at the nearest package.json instead of walking past it', () => {
-    const cwd = projectWith(undefined);
-    expect(resolveVersion({ cwd, env: {} }).source).toBe('pinned');
+  it('finds wasmOpt.version in a monorepo root from a nested package', () => {
+    const root = projectWith({ version: '120' });
+    const nested = join(root, 'packages', 'app');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, 'package.json'), JSON.stringify({ name: 'app' }));
+
+    expect(resolveVersion({ cwd: nested, env: {} })).toEqual({
+      version: '120',
+      source: 'package.json',
+      explicit: true,
+    });
+  });
+
+  it('refuses to guess when a manifest on the way up is malformed', () => {
+    const root = projectWith({ version: '120' });
+    const nested = join(root, 'packages', 'app');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, 'package.json'), '{ not json');
+
+    expect(() => resolveVersion({ cwd: nested, env: {} })).toThrow();
   });
 });
 
