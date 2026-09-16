@@ -27,6 +27,16 @@ jobs:
       - name: Use an npm release that supports trusted publishing
         run: npm install --global npm@^12
 
+      - name: Refuse to release a tag that disagrees with the manifest
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(node -p "require('./package.json').version")
+          if [ "${tag}" != "${manifest}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version ${manifest}"
+            exit 1
+          fi
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm lint

@@ -51,14 +51,28 @@ export const WASM_TARGET: WasmTarget = {
 
 export const ALL_TARGETS: readonly Target[] = [...Object.values(NATIVE_TARGETS), WASM_TARGET];
 
+const libcCache = new Map<string, Libc>();
+
 export function detectLibc(platform: NodeJS.Platform = process.platform): Libc {
   if (platform !== 'linux') {
     return 'unknown';
   }
 
+  const cached = libcCache.get(platform);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const detected = probeLibc();
+  libcCache.set(platform, detected);
+  return detected;
+}
+
+function probeLibc(): Libc {
   try {
-    const header = process.report?.getReport() as { header?: { glibcVersionRuntime?: string } };
-    return header?.header?.glibcVersionRuntime ? 'glibc' : 'musl';
+    const report = process.report?.getReport() as { header?: { glibcVersionRuntime?: string } };
+    return report?.header?.glibcVersionRuntime ? 'glibc' : 'musl';
   } catch {
     return 'unknown';
   }

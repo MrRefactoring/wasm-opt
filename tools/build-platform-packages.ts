@@ -59,7 +59,10 @@ function manifestFor(target: Target, root: RootManifest, version: string): unkno
   };
 }
 
-async function cachedTarball(version: string, target: Target): Promise<string> {
+async function cachedTarball(
+  version: string,
+  target: Target,
+): Promise<{ path: string; sha256: string }> {
   await mkdir(tarballCache, { recursive: true });
 
   const path = join(tarballCache, assetFileName(version, target.asset));
@@ -71,7 +74,7 @@ async function cachedTarball(version: string, target: Target): Promise<string> {
 
     if (actual === expected) {
       process.stdout.write(`  cache hit ${target.key}\n`);
-      return path;
+      return { path, sha256: actual };
     }
 
     await rm(path, { force: true });
@@ -81,7 +84,7 @@ async function cachedTarball(version: string, target: Target): Promise<string> {
   const actual = await downloadTarball(version, target.asset, path);
   assertChecksum(expected, actual, url);
 
-  return path;
+  return { path, sha256: actual };
 }
 
 async function buildPackage(target: Target, root: RootManifest, version: string): Promise<void> {
@@ -98,7 +101,7 @@ async function buildPackage(target: Target, root: RootManifest, version: string)
     );
   }
 
-  const tarball = await cachedTarball(version, target);
+  const { path: tarball, sha256 } = await cachedTarball(version, target);
   const staging = await mkdtemp(join(tmpdir(), 'wasm-opt-pkg-'));
 
   try {
@@ -106,7 +109,7 @@ async function buildPackage(target: Target, root: RootManifest, version: string)
     const binary = await installExtracted(unpacked, target, packageDir, {
       version,
       asset: target.asset,
-      tarballSha256: await fileChecksum(tarball),
+      tarballSha256: sha256,
     });
 
     process.stdout.write(`  built ${target.packageName} -> ${binary}\n`);
