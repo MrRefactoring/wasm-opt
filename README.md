@@ -115,7 +115,7 @@ never downloads anything on its own.
 | `WASM_OPT_BINARY_URL` | Download the archive from here instead of GitHub. |
 | `WASM_OPT_SHA256` | Expected digest, for mirrors that do not serve the `.sha256` sibling. |
 | `WASM_OPT_CACHE_DIR` | Cache location. |
-| `WASM_OPT_TIMEOUT` | Per-request timeout in milliseconds. Default `120000`. |
+| `WASM_OPT_TIMEOUT` | How long a download may make no progress, in milliseconds. Default `120000`. A slow but steady transfer is never cut off. |
 | `WASM_OPT_FORCE` | Set to `1` to re-download even on a cache hit. |
 | `GITHUB_TOKEN` | Raises the API rate limit for `WASM_OPT_VERSION=latest`. |
 

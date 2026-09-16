@@ -153,6 +153,58 @@ describe('http failure modes', () => {
     expect((error as DownloadError).message).toMatch(/truncated|interrupted/);
   });
 
+  it('survives a transfer slower than the timeout as long as it keeps moving', async () => {
+    const url = await serve((_request, response) => {
+      response.writeHead(200, {
+        'content-type': 'application/gzip',
+        'content-length': String(TARBALL.byteLength),
+      });
+
+      let offset = 0;
+
+      const push = () => {
+        if (offset >= TARBALL.byteLength) {
+          response.end();
+          return;
+        }
+
+        response.write(TARBALL.subarray(offset, offset + 64));
+        offset += 64;
+        setTimeout(push, 40);
+      };
+
+      push();
+    });
+
+    const digest = await withTempFile((path) =>
+      downloadTarball('132', 'x86_64-linux', path, {
+        env: { WASM_OPT_BINARY_URL: url, WASM_OPT_TIMEOUT: '400' },
+      }),
+    );
+
+    expect(digest).toBe(DIGEST);
+  });
+
+  it('gives up when the transfer stalls mid-body', async () => {
+    const url = await serve((_request, response) => {
+      response.writeHead(200, {
+        'content-type': 'application/gzip',
+        'content-length': String(TARBALL.byteLength),
+      });
+      response.write(TARBALL.subarray(0, 64));
+    });
+
+    const error = await withTempFile((path) =>
+      downloadTarball('132', 'x86_64-linux', path, {
+        env: { WASM_OPT_BINARY_URL: url, WASM_OPT_TIMEOUT: '200' },
+      }).catch((caught: unknown) => caught),
+    );
+
+    expect(error).toBeInstanceOf(DownloadError);
+    expect((error as DownloadError).message).toMatch(/stalled/);
+    expect(requests.length).toBe(3);
+  });
+
   it('gives up after three attempts when the server never answers', async () => {
     const url = await serve(() => {});
 

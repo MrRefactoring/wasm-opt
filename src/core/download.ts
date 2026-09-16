@@ -105,15 +105,20 @@ function wait(ms: number): Promise<void> {
   });
 }
 
-async function request(url: string, env: NodeJS.ProcessEnv): Promise<Response> {
+async function request(
+  url: string,
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
+  attempts: number = MAX_ATTEMPTS,
+): Promise<Response> {
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(url, {
         headers: { 'user-agent': 'wasm-opt-npm' },
         redirect: 'follow',
-        signal: AbortSignal.timeout(timeoutMs(env)),
+        signal: signal ?? AbortSignal.timeout(timeoutMs(env)),
       });
 
       if (response.ok) {
@@ -142,7 +147,7 @@ async function request(url: string, env: NodeJS.ProcessEnv): Promise<Response> {
       lastError = error;
     }
 
-    if (attempt < MAX_ATTEMPTS) {
+    if (attempt < attempts) {
       await wait(2 ** (attempt - 1) * 500 + Math.floor(Math.random() * 250));
     }
   }
@@ -151,7 +156,7 @@ async function request(url: string, env: NodeJS.ProcessEnv): Promise<Response> {
     throw lastError;
   }
 
-  throw new DownloadError(`Request for ${url} failed after ${MAX_ATTEMPTS} attempts.`, {
+  throw new DownloadError(`Request for ${url} failed after ${attempts} attempt(s).`, {
     url,
     cause: lastError,
   });
@@ -181,59 +186,119 @@ export async function downloadTarball(
 ): Promise<string> {
   const env = options.env ?? process.env;
   const url = assetUrl(version, asset, env);
-  const response = await request(url, env);
+  const stall = timeoutMs(env);
+  let lastError: unknown;
 
-  const contentType = response.headers.get('content-type') ?? '';
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await attemptDownload(url, destination, stall, options);
+    } catch (error) {
+      lastError = error;
 
-  if (contentType.startsWith('text/html')) {
-    const preview = (await response.text()).slice(0, BODY_PREVIEW_BYTES);
+      if (
+        error instanceof DownloadError &&
+        error.status !== undefined &&
+        !retriable(error.status)
+      ) {
+        throw error;
+      }
 
-    throw new DownloadError(
-      `Expected a gzip archive at ${url} but received an HTML document. This is usually a proxy or captive-portal interstitial rather than the release asset.`,
-      { url, status: response.status, bodyPreview: preview },
-    );
+      if (attempt < MAX_ATTEMPTS) {
+        await wait(2 ** (attempt - 1) * 500 + Math.floor(Math.random() * 250));
+      }
+    }
   }
 
-  if (!response.body) {
-    throw new DownloadError(`Response for ${url} had no body.`, {
-      url,
-      status: response.status,
-    });
+  if (lastError instanceof DownloadError) {
+    throw lastError;
   }
 
-  const declared = Number.parseInt(response.headers.get('content-length') ?? '', 10);
-  const total = Number.isFinite(declared) ? declared : null;
-  const hash = createHash('sha256');
-  let received = 0;
+  throw new DownloadError(`Download of ${url} failed after ${MAX_ATTEMPTS} attempts.`, {
+    url,
+    cause: lastError,
+  });
+}
+
+async function attemptDownload(
+  url: string,
+  destination: string,
+  stall: number,
+  options: DownloadOptions,
+): Promise<string> {
+  const env = options.env ?? process.env;
+  const controller = new AbortController();
+  let watchdog: NodeJS.Timeout | undefined;
+  let stalled = false;
+
+  const arm = () => {
+    clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      stalled = true;
+      controller.abort();
+    }, stall);
+  };
+
+  arm();
 
   try {
-    await pipeline(
-      Readable.fromWeb(response.body),
-      async function* track(chunks: AsyncIterable<Uint8Array>) {
-        for await (const chunk of chunks) {
-          hash.update(chunk);
-          received += chunk.byteLength;
-          options.onProgress?.(received, total);
-          yield chunk;
-        }
-      },
-      createWriteStream(destination),
-    );
-  } catch (error) {
-    throw new DownloadError(`Download of ${url} was interrupted after ${received} bytes.`, {
-      url,
-      cause: error,
-    });
-  }
+    const response = await request(url, env, controller.signal, 1);
+    const contentType = response.headers.get('content-type') ?? '';
 
-  if (total !== null && received !== total) {
-    throw new DownloadError(
-      `Download of ${url} is truncated: expected ${total} bytes, received ${received}.`,
-      { url, status: response.status },
-    );
-  }
+    if (contentType.startsWith('text/html')) {
+      const preview = (await response.text()).slice(0, BODY_PREVIEW_BYTES);
 
-  return hash.digest('hex');
+      throw new DownloadError(
+        `Expected a gzip archive at ${url} but received an HTML document. This is usually a proxy or captive-portal interstitial rather than the release asset.`,
+        { url, status: response.status, bodyPreview: preview },
+      );
+    }
+
+    if (!response.body) {
+      throw new DownloadError(`Response for ${url} had no body.`, {
+        url,
+        status: response.status,
+      });
+    }
+
+    const declared = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+    const total = Number.isFinite(declared) ? declared : null;
+    const hash = createHash('sha256');
+    let received = 0;
+
+    try {
+      await pipeline(
+        Readable.fromWeb(response.body),
+        async function* track(chunks: AsyncIterable<Uint8Array>) {
+          for await (const chunk of chunks) {
+            arm();
+            hash.update(chunk);
+            received += chunk.byteLength;
+            options.onProgress?.(received, total);
+            yield chunk;
+          }
+        },
+        createWriteStream(destination),
+      );
+    } catch (error) {
+      throw new DownloadError(
+        stalled
+          ? `Download of ${url} stalled for ${stall} ms after ${received} bytes. Raise WASM_OPT_TIMEOUT if the connection is simply slow.`
+          : `Download of ${url} was interrupted after ${received} bytes.`,
+        { url, cause: error },
+      );
+    }
+
+    if (total !== null && received !== total) {
+      throw new DownloadError(
+        `Download of ${url} is truncated: expected ${total} bytes, received ${received}.`,
+        { url, status: response.status },
+      );
+    }
+
+    return hash.digest('hex');
+  } finally {
+    clearTimeout(watchdog);
+  }
 }
 
 export async function fileChecksum(path: string): Promise<string> {
