@@ -29,8 +29,6 @@ jobs:
 
       - uses: changesets/action@v2
         with:
-          version: pnpm changeset version
-          title: 'chore: release'
-          commit: 'chore: version packages'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version-script: pnpm changeset version && pnpm install --lockfile-only
+          pr-title: 'chore: release'
+          commit-message: 'chore: version packages'

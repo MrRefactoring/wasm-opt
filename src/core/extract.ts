@@ -62,6 +62,7 @@ export async function installExtracted(
   destination: string,
   integrity: Omit<CacheIntegrity, 'files'>,
 ): Promise<string> {
+  await rm(integrityPath(destination), { force: true });
   await rm(join(destination, 'bin'), { recursive: true, force: true });
   await rm(join(destination, 'lib'), { recursive: true, force: true });
   await mkdir(join(destination, 'bin'), { recursive: true });

@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BINARYEN_VERSION, optimize, resolveBinary, wasmOpt } from '../../src/index.ts';
 
@@ -62,5 +63,31 @@ describe('api robustness', () => {
     const result = await wasmOpt(['--version'], { env: { WASM_OPT_MARKER: '1' } });
 
     expect(result.status).toBe(0);
+    expect(Buffer.from(result.stdout).toString()).toContain(`version ${BINARYEN_VERSION}`);
+  });
+
+  it('keeps the ambient configuration visible when env is supplied', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wasm-opt-api-'));
+    const override = join(dir, 'my-wasm-opt');
+    writeFileSync(override, '');
+    const previous = process.env.WASM_OPT_PATH;
+    process.env.WASM_OPT_PATH = override;
+
+    try {
+      const plain = await resolveBinary();
+      const extended = await resolveBinary({ env: { WASM_OPT_MARKER: '1' } });
+
+      expect(plain.source).toBe('env');
+      expect(extended.source).toBe('env');
+      expect(extended.path).toBe(override);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.WASM_OPT_PATH;
+      } else {
+        process.env.WASM_OPT_PATH = previous;
+      }
+
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

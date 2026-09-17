@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readIntegrity } from '../../src/core/cache.ts';
 import { fileChecksum } from '../../src/core/download.ts';
+import { installExtracted } from '../../src/core/extract.ts';
 import { currentTarget, WASM_TARGET } from '../../src/core/platform.ts';
 import { resolveBinarySync } from '../../src/core/resolve.ts';
 import { ChecksumMismatchError, VersionUnavailableError } from '../../src/errors.ts';
@@ -158,6 +159,24 @@ describe('installer', () => {
         env: { WASM_OPT_VERSION: 'latest', WASM_OPT_CACHE_DIR: join(cacheHome, 'empty'), PATH: '' },
       }),
     ).toThrow(VersionUnavailableError);
+  });
+
+  it('invalidates the cache entry before overwriting the files it describes', async () => {
+    const url = await serveArchive(DIGEST);
+    await installBinary({ env: env(url) });
+
+    const dir = join(cacheHome, '999', target.key);
+    expect(readIntegrity(dir)).not.toBeNull();
+
+    await expect(
+      installExtracted(join(cacheHome, 'absent'), target, dir, {
+        version: '999',
+        asset: target.asset,
+        tarballSha256: DIGEST,
+      }),
+    ).rejects.toThrow();
+
+    expect(readIntegrity(dir)).toBeNull();
   });
 
   it('makes the installed binary discoverable from the cache', async () => {

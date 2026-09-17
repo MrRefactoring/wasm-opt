@@ -30,25 +30,33 @@ export interface WasmOptResult {
   readonly stderr: string;
 }
 
+function environmentFor(env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+  return env === undefined ? process.env : { ...process.env, ...env };
+}
+
 export async function resolveBinary(
   options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
 ): Promise<import('./core/resolve.ts').BinaryInfo> {
-  return resolveBinarySync(options);
+  return resolveBinarySync({
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    env: environmentFor(options.env),
+  });
 }
 
 export async function wasmOpt(
   args: readonly string[],
   options: WasmOptOptions = {},
 ): Promise<WasmOptResult> {
+  const environment = environmentFor(options.env);
   const binary = resolveBinarySync({
     ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-    ...(options.env === undefined ? {} : { env: options.env }),
+    env: environment,
   });
 
   return new Promise<WasmOptResult>((resolve, reject) => {
     const child = spawn(binary.command, [...binary.args, ...args], {
       ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-      env: { ...process.env, ...options.env, WASM_OPT_CHILD: '1' },
+      env: { ...environment, WASM_OPT_CHILD: '1' },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       stdio: ['pipe', 'pipe', 'pipe'],
     });

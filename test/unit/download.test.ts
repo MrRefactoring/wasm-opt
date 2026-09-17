@@ -153,6 +153,33 @@ describe('http failure modes', () => {
     expect((error as DownloadError).message).toMatch(/truncated|interrupted/);
   });
 
+  it('retries a transfer that was cut short instead of giving up', async () => {
+    let attempts = 0;
+
+    const url = await serve((_request, response) => {
+      attempts += 1;
+      response.writeHead(200, {
+        'content-type': 'application/gzip',
+        'content-length': String(TARBALL.byteLength),
+      });
+
+      if (attempts === 1) {
+        response.write(TARBALL.subarray(0, 100));
+        setTimeout(() => response.destroy(), 150);
+        return;
+      }
+
+      response.end(TARBALL);
+    });
+
+    const digest = await withTempFile((path) =>
+      downloadTarball('132', 'x86_64-linux', path, { env: { WASM_OPT_BINARY_URL: url } }),
+    );
+
+    expect(attempts).toBe(2);
+    expect(digest).toBe(DIGEST);
+  });
+
   it('survives a transfer slower than the timeout as long as it keeps moving', async () => {
     const url = await serve((_request, response) => {
       response.writeHead(200, {

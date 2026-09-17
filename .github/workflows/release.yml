@@ -37,6 +37,24 @@ jobs:
             exit 1
           fi
 
+      - name: Refuse to release if the workspace versions disagree
+        run: |
+          set -euo pipefail
+          root=$(node -p "require('./package.json').version")
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if [ "${version}" != "${root}" ]; then
+              echo "::error::${name} is ${version}, the root package is ${root}"
+              exit 1
+            fi
+            range=$(node -p "require('./package.json').optionalDependencies?.['${name}'] ?? ''")
+            if [ -n "${range}" ] && [ "${range}" != "${root}" ]; then
+              echo "::error::optionalDependencies[${name}] is ${range}, the root package is ${root}"
+              exit 1
+            fi
+          done
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm lint
