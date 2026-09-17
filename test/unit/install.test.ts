@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { appendFile, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { appendFile, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -7,14 +7,14 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readIntegrity } from '../../src/core/cache.ts';
 import { fileChecksum } from '../../src/core/download.ts';
-import { installExtracted } from '../../src/core/extract.ts';
+import { extractTarball, installExtracted } from '../../src/core/extract.ts';
 import { currentTarget, WASM_TARGET } from '../../src/core/platform.ts';
 import { resolveBinarySync } from '../../src/core/resolve.ts';
 import { ChecksumMismatchError, VersionUnavailableError } from '../../src/errors.ts';
 import { installBinary } from '../../src/install.ts';
 
 const TARBALL = readFileSync('test/fixtures/binaryen-stub.tar.gz');
-const DIGEST = 'cbf310dad3c30c32ab7d275d23557f7fe885ec79f39328dfbc0293471ba7c163';
+const DIGEST = '32b663a2afcc9962d6d33a6e0739b8e8f1fdf818481c16596ed4470d250307c3';
 
 const target = currentTarget() ?? WASM_TARGET;
 
@@ -159,6 +159,34 @@ describe('installer', () => {
         env: { WASM_OPT_VERSION: 'latest', WASM_OPT_CACHE_DIR: join(cacheHome, 'empty'), PATH: '' },
       }),
     ).toThrow(VersionUnavailableError);
+  });
+
+  it('installs the portable build the way a platform without a native target would', async () => {
+    const staging = await mkdtemp(join(tmpdir(), 'wasm-opt-portable-'));
+    const tarball = join(staging, 'binaryen.tar.gz');
+    await writeFile(tarball, TARBALL);
+
+    const unpacked = await extractTarball(tarball, WASM_TARGET, join(staging, 'unpacked'));
+    const destination = join(cacheHome, '999', WASM_TARGET.key);
+    const binary = await installExtracted(unpacked, WASM_TARGET, destination, {
+      version: '999',
+      asset: WASM_TARGET.asset,
+      tarballSha256: DIGEST,
+    });
+
+    expect(binary).toBe(join(destination, 'bin', 'wasm-opt.js'));
+    expect((await readdir(join(destination, 'bin'))).sort()).toEqual([
+      'wasm-opt.js',
+      'wasm-opt.wasm',
+    ]);
+
+    const integrity = readIntegrity(destination);
+    expect(Object.keys(integrity?.files ?? {}).sort()).toEqual([
+      'bin/wasm-opt.js',
+      'bin/wasm-opt.wasm',
+    ]);
+
+    await rm(staging, { recursive: true, force: true });
   });
 
   it('invalidates the cache entry before overwriting the files it describes', async () => {

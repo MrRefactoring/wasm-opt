@@ -14,7 +14,7 @@ import {
 import { ChecksumMismatchError, DownloadError } from '../../src/errors.ts';
 
 const TARBALL = readFileSync('test/fixtures/binaryen-stub.tar.gz');
-const DIGEST = 'cbf310dad3c30c32ab7d275d23557f7fe885ec79f39328dfbc0293471ba7c163';
+const DIGEST = '32b663a2afcc9962d6d33a6e0739b8e8f1fdf818481c16596ed4470d250307c3';
 
 type Handler = Parameters<typeof createServer>[1];
 
