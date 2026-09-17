@@ -5,6 +5,7 @@ import { currentTarget, describePlatform, unsupportedReason } from './core/platf
 import { resolveBinarySync } from './core/resolve.ts';
 import {
   BinaryNotFoundError,
+  InvalidOverrideError,
   UnsupportedPlatformError,
   VersionUnavailableError,
   WasmOptError,
@@ -48,6 +49,18 @@ function troubleshooting(): string {
 
 function explain(error: unknown): string {
   const headline = error instanceof Error ? error.message : String(error);
+
+  if (error instanceof InvalidOverrideError) {
+    return [
+      `${paint('red', 'wasm-opt:')} ${headline}`,
+      '',
+      'Try one of:',
+      '  unset WASM_OPT_PATH                   # fall back to the packaged binary',
+      '  WASM_OPT_PATH=/path/to/wasm-opt       # point it at a binary that exists',
+      '',
+      DOCS,
+    ].join('\n');
+  }
 
   if (error instanceof BinaryNotFoundError || error instanceof UnsupportedPlatformError) {
     return `${paint('red', 'wasm-opt:')} ${headline}\n\n${troubleshooting()}`;

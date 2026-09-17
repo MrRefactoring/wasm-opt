@@ -93,9 +93,13 @@ which is roughly twice as fast ([WebAssembly/binaryen#6338](https://github.com/W
 
 Resolution stops at the first hit:
 
-1. `WASM_OPT_PATH` — an explicit override, used exactly as given and never version-checked.
+1. `WASM_OPT_PATH` — an explicit override, used exactly as given and never version-checked. If it
+   points at a file that does not exist, the CLI exits `1` instead of quietly resolving something
+   else.
 2. The shared cache, for the version that was requested.
-3. The platform package from `optionalDependencies`, only if it carries the requested version.
+3. The platform package from `optionalDependencies`, only if the `wasmOpt.binaryenVersion` recorded
+   in its manifest is the version that was requested. A package left behind by a stale lockfile or
+   an `overrides` entry is reported, never run.
 4. A `wasm-opt` on `PATH`, only when no version was requested explicitly. Shims inside
    `node_modules/.bin` are skipped, so the package can never invoke itself.
 
@@ -110,7 +114,7 @@ never downloads anything on its own.
 
 | Variable | Effect |
 | --- | --- |
-| `WASM_OPT_PATH` | Use this binary and skip resolution entirely. |
+| `WASM_OPT_PATH` | Use this binary and skip resolution entirely. A missing file is an error. |
 | `WASM_OPT_VERSION` | Binaryen release to use — `132`, `version_132` or `latest`. |
 | `WASM_OPT_BINARY_URL` | Download the archive from here instead of GitHub. |
 | `WASM_OPT_SHA256` | Expected digest, for mirrors that do not serve the `.sha256` sibling. |

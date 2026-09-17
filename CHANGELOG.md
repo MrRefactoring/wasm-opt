@@ -11,7 +11,10 @@ Full rewrite on TypeScript and ESM. Binaryen updated from 112 to 132.
 - Intel macOS is no longer supported. Install `@wasm-opt/wasm` instead.
 - The CLI now exits with the child's exit code and re-raises its terminating signal.
 - Diagnostics go to stderr; stdout carries only the binary's own output.
-- No `lib/` directory is created next to the package.
+- No `lib/` directory is created next to the package, and nothing is written inside
+  `node_modules/wasm-opt/` at all. Anything that read `node_modules/wasm-opt/bin/wasm-opt`
+  directly — a `COPY` in a Dockerfile, a `require.resolve` in a build script — must ask for the
+  path instead, through `wasm-opt --wasm-opt-info` or `resolveBinary()`.
 - The package declares no lifecycle scripts. The binary is delivered through
   `optionalDependencies`, so installs work under npm 12, pnpm 10+ and `--ignore-scripts`
   without an allowlist.
@@ -40,6 +43,8 @@ Full rewrite on TypeScript and ESM. Binaryen updated from 112 to 132.
   Static archives are never written to disk.
 - The archive root is read from the tar entries instead of being reconstructed.
 - musl detection is gated on Linux, so macOS is no longer misclassified.
+- `WASM_OPT_PATH` that points at nothing is an error rather than a silent fallback, and the
+  Binaryen version is read from the platform package instead of being assumed.
 
 ### 1.4.0
 

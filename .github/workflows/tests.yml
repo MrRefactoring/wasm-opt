@@ -78,3 +78,21 @@ jobs:
         run: pnpm packages:build --only-current
 
       - run: pnpm test
+
+  test-musl:
+    name: test alpine / node 24
+    runs-on: ubuntu-latest
+    container: node:24-alpine
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Build the portable package this platform falls back to
+        run: pnpm packages:build --only-current
+
+      - run: pnpm test

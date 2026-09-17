@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { cacheRoot } from '../../src/core/cache.ts';
-import { findOnPath, resolveBinarySync } from '../../src/core/resolve.ts';
-import { VersionUnavailableError } from '../../src/errors.ts';
+import { findOnPath, packagedVersion, resolveBinarySync } from '../../src/core/resolve.ts';
+import { InvalidOverrideError, VersionUnavailableError } from '../../src/errors.ts';
 
 function emptyProject(): string {
   const dir = mkdtempSync(join(tmpdir(), 'wasm-opt-resolve-'));
@@ -38,20 +38,23 @@ describe('resolution order', () => {
     expect(info.args).toEqual([fake]);
   });
 
-  it('ignores WASM_OPT_PATH when the file is missing', () => {
+  it('refuses to fall through when WASM_OPT_PATH points at nothing', () => {
     const dir = emptyProject();
+    const absent = join(dir, 'absent');
 
     expect(() =>
       resolveBinarySync({
         cwd: dir,
-        env: {
-          WASM_OPT_PATH: join(dir, 'absent'),
-          WASM_OPT_VERSION: '111',
-          WASM_OPT_CACHE_DIR: join(dir, 'cache'),
-          PATH: '',
-        },
+        env: { WASM_OPT_PATH: absent },
       }),
-    ).toThrow(VersionUnavailableError);
+    ).toThrow(InvalidOverrideError);
+
+    try {
+      resolveBinarySync({ cwd: dir, env: { WASM_OPT_PATH: absent } });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as Error).message).toContain(absent);
+    }
   });
 
   it('refuses to substitute a different version for the one requested', () => {
@@ -105,6 +108,45 @@ describe('resolution order', () => {
   it('returns nothing when PATH is empty', () => {
     expect(findOnPath({ PATH: '' })).toBeNull();
     expect(findOnPath({})).toBeNull();
+  });
+});
+
+describe('platform package version', () => {
+  it('reads the Binaryen version the package carries', () => {
+    const dir = emptyProject();
+    const manifest = join(dir, 'package.json');
+
+    writeFileSync(manifest, JSON.stringify({ wasmOpt: { binaryenVersion: '121' } }));
+    expect(packagedVersion(manifest)).toBe('121');
+  });
+
+  it('falls back when the field is absent or malformed', () => {
+    const dir = emptyProject();
+    const manifest = join(dir, 'manifest.json');
+
+    expect(packagedVersion(join(dir, 'package.json'))).toBeNull();
+    expect(packagedVersion(join(dir, 'absent.json'))).toBeNull();
+
+    writeFileSync(manifest, JSON.stringify({ wasmOpt: { binaryenVersion: 132 } }));
+    expect(packagedVersion(manifest)).toBeNull();
+
+    writeFileSync(manifest, '{ not json');
+    expect(packagedVersion(manifest)).toBeNull();
+  });
+
+  it('reports the version recorded in the resolved platform package', () => {
+    const dir = emptyProject();
+    const info = resolveBinarySync({
+      cwd: dir,
+      env: { WASM_OPT_CACHE_DIR: join(dir, 'cache'), PATH: '' },
+    });
+
+    if (info.source !== 'package' || info.packageName === null) {
+      return;
+    }
+
+    const manifest = fileURLToPath(import.meta.resolve(`${info.packageName}/package.json`));
+    expect(info.version).toBe(packagedVersion(manifest));
   });
 });
 

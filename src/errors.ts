@@ -10,6 +10,10 @@ export class BinaryNotFoundError extends WasmOptError {
   override name = 'BinaryNotFoundError';
 }
 
+export class InvalidOverrideError extends WasmOptError {
+  override name = 'InvalidOverrideError';
+}
+
 export class VersionUnavailableError extends WasmOptError {
   override name = 'VersionUnavailableError';
 }

@@ -11,6 +11,7 @@ export {
   ChecksumMismatchError,
   DownloadError,
   ExtractionError,
+  InvalidOverrideError,
   UnsupportedPlatformError,
   VersionUnavailableError,
   WasmOptError,
