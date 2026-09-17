@@ -7,7 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { currentTarget, WASM_TARGET } from '../../src/core/platform.ts';
 import { BINARYEN_VERSION } from '../../src/core/version.ts';
 
-const target = currentTarget() ?? WASM_TARGET;
+const native = currentTarget();
+const target = native ?? WASM_TARGET;
 
 let registry = '';
 let rootTarball = '';
@@ -36,6 +37,7 @@ function pack(packageDir: string): string {
 
 async function consumer(
   flags: string[],
+  options: { portable?: boolean } = {},
 ): Promise<{ dir: string; install: ReturnType<typeof npm> }> {
   const dir = await mkdtemp(join(tmpdir(), 'wasm-opt-consumer-'));
 
@@ -46,6 +48,9 @@ async function consumer(
         name: 'consumer',
         version: '1.0.0',
         private: true,
+        ...(options.portable === true
+          ? { dependencies: { [target.packageName]: `file:${leafTarball}` } }
+          : {}),
         overrides: { [target.packageName]: `file:${leafTarball}` },
       },
       null,
@@ -81,7 +86,7 @@ afterAll(async () => {
 
 describe('delivery through optionalDependencies', () => {
   it('works on a default install', async () => {
-    const { dir, install } = await consumer([]);
+    const { dir, install } = await consumer([], { portable: native === null });
 
     expect(install.status).toBe(0);
     const result = runCli(dir);
@@ -93,7 +98,7 @@ describe('delivery through optionalDependencies', () => {
   }, 300_000);
 
   it('works identically with --ignore-scripts, because there are none', async () => {
-    const { dir, install } = await consumer(['--ignore-scripts']);
+    const { dir, install } = await consumer(['--ignore-scripts'], { portable: native === null });
 
     expect(install.status).toBe(0);
     const result = runCli(dir);

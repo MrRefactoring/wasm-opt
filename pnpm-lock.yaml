@@ -125,6 +125,9 @@ importers:
       '@types/node':
         specifier: ^26.5.1
         version: 26.5.1
+      '@wasm-opt/wasm':
+        specifier: workspace:*
+        version: link:packages/wasm
       publint:
         specifier: ^0.3.24
         version: 0.3.24

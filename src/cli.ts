@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { styleText } from 'node:util';
-import { currentTarget, describePlatform, unsupportedReason } from './core/platform.ts';
+import { currentTarget, describePlatform } from './core/platform.ts';
 import { resolveBinarySync } from './core/resolve.ts';
 import {
   BinaryNotFoundError,
@@ -37,10 +37,9 @@ function troubleshooting(): string {
         '  WASM_OPT_PATH=/path/to/wasm-opt       # use an existing binary',
       ]
     : [
-        unsupportedReason(),
-        '',
         'Try one of:',
         '  npm i -D @wasm-opt/wasm               # portable build, works anywhere',
+        '  npx wasm-opt --wasm-opt-install       # download that build into the shared cache',
         '  WASM_OPT_PATH=/path/to/wasm-opt       # use an existing binary',
       ];
 
