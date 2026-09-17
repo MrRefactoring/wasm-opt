@@ -1,0 +1,36 @@
+{
+  "name": "@wasm-opt/win32-x64",
+  "version": "2.0.0",
+  "description": "Binaryen wasm-opt binary for win32-x64",
+  "keywords": [
+    "wasm",
+    "wasm-opt",
+    "binaryen"
+  ],
+  "homepage": "https://github.com/MrRefactoring/wasm-opt#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
+  },
+  "license": "MIT",
+  "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "files": [
+    "bin",
+    "lib"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "wasmOpt": {
+    "binaryenVersion": "132"
+  }
+}

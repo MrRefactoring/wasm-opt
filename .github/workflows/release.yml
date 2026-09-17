@@ -1,0 +1,111 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    name: build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Use an npm release that supports trusted publishing
+        run: npm install --global npm@^12
+
+      - name: Refuse to release a tag that disagrees with the manifest
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(node -p "require('./package.json').version")
+          if [ "${tag}" != "${manifest}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version ${manifest}"
+            exit 1
+          fi
+
+      - name: Refuse to release if the workspace versions disagree
+        run: |
+          set -euo pipefail
+          root=$(node -p "require('./package.json').version")
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if [ "${version}" != "${root}" ]; then
+              echo "::error::${name} is ${version}, the root package is ${root}"
+              exit 1
+            fi
+            range=$(node -p "require('./package.json').optionalDependencies?.['${name}'] ?? ''")
+            if [ -n "${range}" ] && [ "${range}" != "${root}" ]; then
+              echo "::error::optionalDependencies[${name}] is ${range}, the root package is ${root}"
+              exit 1
+            fi
+          done
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm build
+
+      - name: Restore Binaryen release archives
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tarball-cache
+          key: binaryen-${{ hashFiles('src/core/version.ts') }}-release
+
+      - name: Download and verify every platform binary
+        run: pnpm packages:build
+
+      - run: pnpm test
+
+      - name: Publish the platform packages
+        run: |
+          set -euo pipefail
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} is already published, skipping"
+              continue
+            fi
+            echo "Publishing ${name}@${version}"
+            npm publish "./${dir}" --provenance --access public
+          done
+
+      - name: Wait for the platform packages to be resolvable
+        run: |
+          set -euo pipefail
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            for attempt in $(seq 1 30); do
+              if npm view "${name}@${version}" version >/dev/null 2>&1; then
+                echo "${name}@${version} is live"
+                break
+              fi
+              if [ "${attempt}" -eq 30 ]; then
+                echo "::error::${name}@${version} did not appear in the registry"
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
+      - name: Publish the root package
+        run: npm publish --provenance --access public
