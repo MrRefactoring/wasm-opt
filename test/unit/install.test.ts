@@ -83,9 +83,14 @@ describe('installer', () => {
     expect(existsSync(join(dir, 'bin', target.executable))).toBe(true);
 
     const libraries = await readdir(join(dir, 'lib'));
-    expect(libraries).toContain('libbinaryen.dylib');
     expect(libraries).not.toContain('libbinaryen.a');
     expect(libraries).not.toContain('binaryen.lib');
+
+    if (target.kind === 'native') {
+      expect(libraries).toContain('libbinaryen.dylib');
+    } else {
+      expect(await readdir(join(dir, 'bin'))).toContain('wasm-opt.wasm');
+    }
   });
 
   it('records per-file digests and verifies them on the next run', async () => {
