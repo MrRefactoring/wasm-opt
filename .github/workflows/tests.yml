@@ -5,22 +5,94 @@ on:
   push:
     branches:
       - master
-    tags:
-      - v*
     paths-ignore:
-      - 'README.md'
+      - '**/*.md'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    name: test
-    strategy:
-      matrix:
-        platform:
-          - macos-latest
-          - ubuntu-latest
-          - windows-latest
-    runs-on: ${{ matrix.platform }}
+  check:
+    name: lint, typecheck, package
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-      - run: npm install --loglevel verbose && bin/wasm-opt --version
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm build
+
+      - run: pnpm check:package
+
+  test:
+    name: test ${{ matrix.os }} / node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - windows-latest
+          - windows-11-arm
+        node:
+          - 24
+          - 26
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Restore Binaryen release archives
+        uses: actions/cache@v6
+        with:
+          path: .tarball-cache
+          key: binaryen-${{ hashFiles('src/core/version.ts') }}-${{ runner.os }}-${{ runner.arch }}
+
+      - run: pnpm build
+
+      - name: Build the platform package for this runner
+        run: pnpm packages:build --only-current
+
+      - run: pnpm test
+
+  test-musl:
+    name: test alpine / node 24
+    runs-on: ubuntu-latest
+    container: node:24-alpine
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Build the portable package this platform falls back to
+        run: pnpm packages:build --only-current
+
+      - run: pnpm test

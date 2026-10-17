@@ -1,9 +1,11 @@
-/.idea
-/node_modules
+node_modules
+dist
+coverage
 
-/bin/wasm-opt
-/bin/wasm-opt.exe
-/lib
+.tarball-cache
+packages/*/bin
+packages/*/lib
+packages/*/integrity.json
 
+.idea
 .DS_Store
-yarn.lock
