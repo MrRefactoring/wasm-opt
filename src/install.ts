@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { styleText } from 'node:util';
-import { cacheDir, readIntegrity } from './core/cache.ts';
+import { cacheDir, installedDirectory, readIntegrity } from './core/cache.ts';
 import {
   assertChecksum,
   assetUrl,
@@ -11,7 +11,7 @@ import {
   enableProxy,
   fetchChecksum,
 } from './core/download.ts';
-import { extractTarball, installExtracted, verifyInstalled } from './core/extract.ts';
+import { extractTarball, installCached, verifyInstalled } from './core/extract.ts';
 import { currentTarget, describePlatform, type Target, WASM_TARGET } from './core/platform.ts';
 import { resolveBinarySync } from './core/resolve.ts';
 import { resolveLatestVersion, resolveVersion } from './core/version.ts';
@@ -56,40 +56,41 @@ export async function installBinary(
 ): Promise<InstallResult> {
   const env = options.env ?? process.env;
   const requested = resolveVersion({ env });
-  const version =
-    requested.version === 'latest' ? await resolveLatestVersion(env) : requested.version;
-
-  const target = currentTarget() ?? WASM_TARGET;
-  const destination = cacheDir(version, target.key, env);
-  const existing = readIntegrity(destination);
-  const force = options.force ?? env.WASM_OPT_FORCE === '1';
-
-  if (existing && !force) {
-    try {
-      await verifyInstalled(destination, existing);
-
-      return {
-        path: join(destination, 'bin', target.executable),
-        version,
-        target,
-        fromCache: true,
-      };
-    } catch (error) {
-      note(
-        `wasm-opt: discarding the cached Binaryen ${version}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
   const restoreProxy = await enableProxy(env);
-
-  if (restoreProxy) {
-    note('wasm-opt: using the proxy from the environment');
-  }
-
-  const staging = await mkdtemp(join(tmpdir(), 'wasm-opt-'));
+  let staging: string | undefined;
 
   try {
+    const version =
+      requested.version === 'latest' ? await resolveLatestVersion(env) : requested.version;
+
+    const target = currentTarget() ?? WASM_TARGET;
+    const destination = cacheDir(version, target.key, env);
+    const existing = readIntegrity(destination);
+    const force = options.force ?? env.WASM_OPT_FORCE === '1';
+
+    if (existing && !force) {
+      try {
+        await verifyInstalled(destination, existing);
+
+        return {
+          path: join(installedDirectory(destination, existing), 'bin', target.executable),
+          version,
+          target,
+          fromCache: true,
+        };
+      } catch (error) {
+        note(
+          `wasm-opt: discarding the cached Binaryen ${version}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    if (restoreProxy) {
+      note('wasm-opt: using the proxy from the environment');
+    }
+
+    staging = await mkdtemp(join(tmpdir(), 'wasm-opt-'));
+
     const tarball = join(staging, 'binaryen.tar.gz');
     const url = assetUrl(version, target.asset, env);
 
@@ -109,7 +110,7 @@ export async function installBinary(
     assertChecksum(expected, actual, url);
 
     const unpacked = await extractTarball(tarball, target, join(staging, 'unpacked'));
-    const path = await installExtracted(unpacked, target, destination, {
+    const path = await installCached(unpacked, target, destination, {
       version,
       asset: target.asset,
       tarballSha256: actual,
@@ -120,7 +121,9 @@ export async function installBinary(
     return { path, version, target, fromCache: false };
   } finally {
     restoreProxy?.();
-    await rm(staging, { recursive: true, force: true });
+    if (staging !== undefined) {
+      await rm(staging, { recursive: true, force: true });
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { styleText } from 'node:util';
 import { currentTarget, describePlatform } from './core/platform.ts';
 import { resolveBinarySync } from './core/resolve.ts';
@@ -118,19 +118,35 @@ try {
   fail(explain(error));
 }
 
-const result = spawnSync(binary.command, [...binary.args, ...argv], {
+const child = spawn(binary.command, [...binary.args, ...argv], {
   stdio: 'inherit',
   env: { ...process.env, WASM_OPT_CHILD: '1' },
 });
 
-if (result.error) {
+const interrupt = () => child.kill('SIGINT');
+const terminate = () => child.kill('SIGTERM');
+const stopForwarding = () => {
+  process.off('SIGINT', interrupt);
+  process.off('SIGTERM', terminate);
+};
+
+process.on('SIGINT', interrupt);
+process.on('SIGTERM', terminate);
+
+child.once('error', (error) => {
+  stopForwarding();
   fail(
-    `${paint('red', 'wasm-opt:')} failed to run ${binary.path} on ${describePlatform()}: ${result.error.message}`,
+    `${paint('red', 'wasm-opt:')} failed to run ${binary.path} on ${describePlatform()}: ${error.message}`,
   );
-}
+});
 
-if (result.signal) {
-  process.kill(process.pid, result.signal);
-}
+child.once('close', (status, signal) => {
+  stopForwarding();
 
-process.exit(result.status ?? 1);
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+
+  process.exit(status ?? 1);
+});

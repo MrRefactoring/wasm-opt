@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -117,6 +117,60 @@ describe('cli contract', () => {
 });
 
 describe('signal propagation', () => {
+  it.skipIf(process.platform === 'win32')(
+    'stops the optimizer and closes captured output when the wrapper is cancelled',
+    async () => {
+      const script = join(workDir, 'waiting.js');
+      await writeFile(
+        script,
+        'process.stdout.write(String(process.pid) + "\\n"); setTimeout(() => {}, 10000);\n',
+      );
+
+      let optimizerPid: number | undefined;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const controller = new AbortController();
+      let child: ReturnType<typeof execFile> | undefined;
+
+      try {
+        const completion = new Promise<Error | null>((resolve) => {
+          child = execFile(
+            process.execPath,
+            [CLI],
+            { env: { ...process.env, WASM_OPT_PATH: script }, signal: controller.signal },
+            (error) => resolve(error),
+          );
+        });
+
+        const pid = await new Promise<number>((resolve, reject) => {
+          child?.stdout?.once('data', (data: Buffer) => resolve(Number(data.toString().trim())));
+          child?.once('error', reject);
+        });
+        optimizerPid = pid;
+
+        child?.kill('SIGTERM');
+
+        const error = await Promise.race([
+          completion,
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error('Optimizer kept output open')), 2000);
+          }),
+        ]);
+
+        expect(error).toMatchObject({ signal: 'SIGTERM' });
+        expect(() => process.kill(pid, 0)).toThrow();
+      } finally {
+        clearTimeout(timeout);
+        controller.abort();
+        child?.kill('SIGKILL');
+        if (optimizerPid !== undefined) {
+          try {
+            process.kill(optimizerPid, 'SIGKILL');
+          } catch {}
+        }
+      }
+    },
+  );
+
   it.skipIf(process.platform === 'win32')('dies by the signal that killed the child', async () => {
     const script = join(workDir, 'suicide.sh');
     await writeFile(script, '#!/bin/sh\nkill -TERM $$\n', { mode: 0o755 });

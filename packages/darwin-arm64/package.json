@@ -1,6 +1,6 @@
 {
   "name": "@wasm-opt/darwin-arm64",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Binaryen wasm-opt binary for darwin-arm64",
   "keywords": [
     "wasm",
@@ -12,7 +12,7 @@
     "type": "git",
     "url": "git+https://github.com/MrRefactoring/wasm-opt.git"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Vladislav Tupikin <mrrefactoring@yandex.ru>",
   "os": [
     "darwin"

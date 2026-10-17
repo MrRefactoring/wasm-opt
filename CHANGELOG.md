@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.1
+
+Corrections before the first public release of the root v2 package. Platform packages are
+republished at the matching version with Apache-2.0 metadata.
+
+### Fixed
+
+- Forward SIGTERM and SIGINT to the optimizer so cancellation closes captured output promptly.
+- Keep ready cache installations available during replacement and retain previously resolved paths.
+- Resolve explicit paths before version configuration and prefer the newest cached release across
+  native and portable builds.
+- Enable proxy support before looking up the latest release and restore it on every return path.
+- Skip an already published root package when retrying a release.
+- Refresh Binaryen version metadata when rebuilding an existing platform package.
+- Correct the file-reading import and version configuration examples.
+
 ## 2.0.0
 
 Full rewrite on TypeScript and ESM. Binaryen updated from 112 to 132.

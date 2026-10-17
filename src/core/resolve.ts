@@ -7,7 +7,7 @@ import {
   UnsupportedPlatformError,
   VersionUnavailableError,
 } from '../errors.ts';
-import { cacheDir, cacheRoot, readIntegrity } from './cache.ts';
+import { cacheDir, cacheRoot, installedDirectory, readIntegrity } from './cache.ts';
 import {
   currentTarget,
   describePlatform,
@@ -67,18 +67,15 @@ function cachedVersions(env: NodeJS.ProcessEnv): string[] {
 }
 
 function fromCache(target: Target, version: string, env: NodeJS.ProcessEnv): BinaryInfo | null {
-  const candidates = version === 'latest' ? cachedVersions(env) : [version];
+  const dir = cacheDir(version, target.key, env);
+  const integrity = readIntegrity(dir);
 
-  for (const candidate of candidates) {
-    const dir = cacheDir(candidate, target.key, env);
-    const binary = join(dir, 'bin', target.executable);
-
-    if (existsSync(binary) && readIntegrity(dir) !== null) {
-      return toInfo(binary, target, 'cache', candidate, null);
-    }
+  if (integrity === null) {
+    return null;
   }
 
-  return null;
+  const binary = join(installedDirectory(dir, integrity), 'bin', target.executable);
+  return existsSync(binary) ? toInfo(binary, target, 'cache', version, null) : null;
 }
 
 export function packagedVersion(manifest: string): string | null {
@@ -171,23 +168,27 @@ export function resolveBinarySync(
   options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
 ): BinaryInfo {
   const env = options.env ?? process.env;
-  const requested = resolveVersion({
-    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-    env,
-  });
-
   const explicit = fromEnv(env);
   if (explicit) {
     return explicit;
   }
 
+  const requested = resolveVersion({
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    env,
+  });
+
   const native = currentTarget();
   const candidates: Target[] = native ? [native, WASM_TARGET] : [WASM_TARGET];
 
-  for (const target of candidates) {
-    const cached = fromCache(target, requested.version, env);
-    if (cached) {
-      return cached;
+  const versions = requested.version === 'latest' ? cachedVersions(env) : [requested.version];
+
+  for (const version of versions) {
+    for (const target of candidates) {
+      const cached = fromCache(target, version, env);
+      if (cached) {
+        return cached;
+      }
     }
   }
 

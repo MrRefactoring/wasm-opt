@@ -142,19 +142,19 @@ importers:
         version: 5.0.1(@types/node@26.5.1)(vite@8.3.0(@types/node@26.5.1)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1))
     optionalDependencies:
       '@wasm-opt/darwin-arm64':
-        specifier: 2.0.0
+        specifier: 2.0.1
         version: link:packages/darwin-arm64
       '@wasm-opt/linux-arm64':
-        specifier: 2.0.0
+        specifier: 2.0.1
         version: link:packages/linux-arm64
       '@wasm-opt/linux-x64':
-        specifier: 2.0.0
+        specifier: 2.0.1
         version: link:packages/linux-x64
       '@wasm-opt/win32-arm64':
-        specifier: 2.0.0
+        specifier: 2.0.1
         version: link:packages/win32-arm64
       '@wasm-opt/win32-x64':
-        specifier: 2.0.0
+        specifier: 2.0.1
         version: link:packages/win32-x64
 
   packages/darwin-arm64: {}

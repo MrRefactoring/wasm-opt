@@ -7,6 +7,7 @@ export interface CacheIntegrity {
   readonly asset: string;
   readonly tarballSha256: string;
   readonly files: Readonly<Record<string, string>>;
+  readonly generation?: string;
 }
 
 export function cacheRoot(env: NodeJS.ProcessEnv = process.env): string {
@@ -38,6 +39,10 @@ export function integrityPath(dir: string): string {
   return join(dir, 'integrity.json');
 }
 
+export function installedDirectory(dir: string, integrity: CacheIntegrity): string {
+  return integrity.generation === undefined ? dir : join(dir, integrity.generation);
+}
+
 export function readIntegrity(dir: string): CacheIntegrity | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(integrityPath(dir), 'utf8'));
@@ -48,7 +53,10 @@ export function readIntegrity(dir: string): CacheIntegrity | null {
       'version' in parsed &&
       'asset' in parsed &&
       'tarballSha256' in parsed &&
-      'files' in parsed
+      'files' in parsed &&
+      (!('generation' in parsed) ||
+        (typeof parsed.generation === 'string' &&
+          /^generation-[a-zA-Z0-9]+$/.test(parsed.generation)))
     ) {
       return parsed as CacheIntegrity;
     }

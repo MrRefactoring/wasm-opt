@@ -27,7 +27,6 @@ interface RootManifest {
   version: string;
   repository: unknown;
   homepage: string;
-  license: string;
   author: string;
   engines: Record<string, string>;
 }
@@ -36,7 +35,7 @@ async function readRootManifest(): Promise<RootManifest> {
   return JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8')) as RootManifest;
 }
 
-function manifestFor(target: Target, root: RootManifest, version: string): unknown {
+function manifestFor(target: Target, root: RootManifest, version: string) {
   const [platform, arch] = target.key.split('-');
 
   return {
@@ -49,7 +48,7 @@ function manifestFor(target: Target, root: RootManifest, version: string): unkno
     keywords: ['wasm', 'wasm-opt', 'binaryen'],
     homepage: root.homepage,
     repository: root.repository,
-    license: root.license,
+    license: 'Apache-2.0',
     author: root.author,
     ...(target.kind === 'wasm' ? {} : { os: [platform], cpu: [arch] }),
     engines: root.engines,
@@ -93,14 +92,6 @@ async function buildPackage(target: Target, root: RootManifest, version: string)
 
   await mkdir(packageDir, { recursive: true });
 
-  if (!existsSync(manifestPath)) {
-    await writeFile(
-      manifestPath,
-      `${JSON.stringify(manifestFor(target, root, version), null, 2)}\n`,
-      'utf8',
-    );
-  }
-
   const { path: tarball, sha256 } = await cachedTarball(version, target);
   const staging = await mkdtemp(join(tmpdir(), 'wasm-opt-pkg-'));
 
@@ -111,6 +102,23 @@ async function buildPackage(target: Target, root: RootManifest, version: string)
       asset: target.asset,
       tarballSha256: sha256,
     });
+
+    const manifest = existsSync(manifestPath)
+      ? (JSON.parse(await readFile(manifestPath, 'utf8')) as ReturnType<typeof manifestFor>)
+      : manifestFor(target, root, version);
+
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify(
+        {
+          ...manifest,
+          wasmOpt: { ...manifest.wasmOpt, binaryenVersion: version },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
 
     process.stdout.write(`  built ${target.packageName} -> ${binary}\n`);
   } finally {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,11 +19,23 @@ describe('resolution order', () => {
     const fake = join(dir, 'my-wasm-opt');
     writeFileSync(fake, '');
 
-    const info = resolveBinarySync({ cwd: dir, env: { WASM_OPT_PATH: fake } });
+    const info = resolveBinarySync({
+      cwd: dir,
+      env: { WASM_OPT_PATH: fake, WASM_OPT_VERSION: 'invalid' },
+    });
 
     expect(info.source).toBe('env');
     expect(info.path).toBe(fake);
     expect(info.command).toBe(fake);
+  });
+
+  it('does not read the project manifest when WASM_OPT_PATH is set', () => {
+    const dir = emptyProject();
+    const fake = join(dir, 'my-wasm-opt');
+    writeFileSync(fake, '');
+    writeFileSync(join(dir, 'package.json'), '{ invalid json');
+
+    expect(resolveBinarySync({ cwd: dir, env: { WASM_OPT_PATH: fake } }).path).toBe(fake);
   });
 
   it('runs a .js override through the current Node executable', () => {
@@ -162,15 +174,15 @@ describe('self-invocation guard', () => {
   });
 
   it('never returns a binary that lives inside this package', () => {
-    const own = dirname(fileURLToPath(import.meta.url));
-    const distLike = join(own, '..', '..', 'dist');
+    const source = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src');
+    const dir = mkdtempSync(join(source, '.wasm-opt-self-'));
 
-    if (!existsSync(distLike)) {
-      return;
+    try {
+      writeFileSync(join(dir, process.platform === 'win32' ? 'wasm-opt.exe' : 'wasm-opt'), '');
+      expect(findOnPath({ PATH: dir })).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
-
-    const found = findOnPath({ PATH: distLike });
-    expect(found).toBeNull();
   });
 });
 

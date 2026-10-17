@@ -1,9 +1,9 @@
-import { chmod, copyFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { chmod, copyFile, mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import { extract } from 'tar';
 import { ChecksumMismatchError, ExtractionError } from '../errors.ts';
 import type { CacheIntegrity } from './cache.ts';
-import { integrityPath } from './cache.ts';
+import { installedDirectory, integrityPath, readIntegrity } from './cache.ts';
 import { fileChecksum } from './download.ts';
 import type { Target } from './platform.ts';
 
@@ -108,12 +108,51 @@ export async function installExtracted(
   return executable;
 }
 
+export async function installCached(
+  source: string,
+  target: Target,
+  destination: string,
+  integrity: Omit<CacheIntegrity, 'files' | 'generation'>,
+): Promise<string> {
+  await mkdir(destination, { recursive: true });
+  const generation = await mkdtemp(join(destination, 'generation-'));
+  const marker = join(destination, `.integrity-${basename(generation)}.json`);
+  let published = false;
+
+  try {
+    const executable = await installExtracted(source, target, generation, integrity);
+    const prepared = readIntegrity(generation);
+
+    if (prepared === null) {
+      throw new ExtractionError('The prepared Binaryen installation has no integrity record.');
+    }
+
+    await writeFile(
+      marker,
+      `${JSON.stringify({ ...prepared, generation: basename(generation) }, null, 2)}\n`,
+      { encoding: 'utf8', flag: 'wx' },
+    );
+    await rename(marker, integrityPath(destination));
+    published = true;
+
+    return executable;
+  } finally {
+    await rm(marker, { force: true });
+
+    if (!published) {
+      await rm(generation, { recursive: true, force: true });
+    }
+  }
+}
+
 export async function verifyInstalled(
   destination: string,
   integrity: CacheIntegrity,
 ): Promise<void> {
+  const directory = installedDirectory(destination, integrity);
+
   for (const [relative, expected] of Object.entries(integrity.files)) {
-    const actual = await fileChecksum(join(destination, relative));
+    const actual = await fileChecksum(join(directory, relative));
 
     if (actual !== expected) {
       throw new ChecksumMismatchError(

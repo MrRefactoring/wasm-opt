@@ -43,6 +43,7 @@ wasm-opt --wasm-opt-install   # download the binary into the shared cache
 ### Programmatic API
 
 ```js
+import { readFile } from 'node:fs/promises';
 import { optimize, wasmOpt, resolveBinary, BINARYEN_VERSION } from 'wasm-opt';
 
 const optimised = await optimize(await readFile('input.wasm'), ['-O3']);
@@ -109,8 +110,12 @@ never downloads anything on its own.
 
 ## Environment variables
 
-`WASM_OPT_VERSION` also has an `npm_config_wasm_opt_version` counterpart, so
-`npm config set wasm_opt_version 130` works too.
+`WASM_OPT_VERSION` also accepts the `npm_config_wasm_opt_version` environment variable.
+Set the version for a command directly:
+
+```sh
+WASM_OPT_VERSION=130 npx wasm-opt --wasm-opt-install
+```
 
 | Variable | Effect |
 | --- | --- |
@@ -167,9 +172,15 @@ ${XDG_CACHE_HOME:-~/.cache}/wasm-opt/<version>/<platform>-<arch>/
 %LOCALAPPDATA%\wasm-opt\Cache\<version>\<platform>-<arch>\
 ```
 
-Each directory holds `bin/`, `lib/` and `integrity.json`. A cache hit performs no network access at
-all. `--wasm-opt-install` re-checks the recorded digests and re-downloads if anything has changed;
-the CLI itself trusts the cache, so keep `WASM_OPT_CACHE_DIR` somewhere only you can write.
+Each directory holds an `integrity.json` record that points to a complete `generation-*` directory
+containing `bin/` and `lib/`. A replacement is prepared separately and published by atomically
+replacing the record. Previous generations remain available so a process that already resolved a
+path can still start; remove the version directory when you want to reclaim that space and no
+process needs it. Existing caches with `bin/` and `lib/` directly beside the record still work.
+
+A cache hit performs no network access at all. `--wasm-opt-install` re-checks the recorded digests
+and re-downloads if anything has changed; the CLI itself trusts the cache, so keep
+`WASM_OPT_CACHE_DIR` somewhere only you can write.
 
 ## Troubleshooting
 
