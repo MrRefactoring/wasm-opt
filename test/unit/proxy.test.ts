@@ -58,7 +58,7 @@ describe('proxy support', () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).toContain(String(originPort));
-    expect(['from-origin', 'via-proxy']).toContain(body);
+    expect(body).toBe('from-origin');
   });
 
   it('stops routing through the proxy once restored', async () => {

@@ -1,12 +1,24 @@
-import { createServer, type Server } from 'node:http';
+import { Agent, createServer, request as forwardRequest, type Server } from 'node:http';
 import { connect } from 'node:net';
 
 export function recordingProxy(seen: string[]): Server {
+  const agent = new Agent({ proxyEnv: {} });
   const server = createServer((request, response) => {
     seen.push(request.url ?? '');
-    response.writeHead(200, { 'content-type': 'text/plain' });
-    response.end('via-proxy');
+    const upstream = forwardRequest(
+      request.url ?? '',
+      { method: request.method, headers: request.headers, agent },
+      (incoming) => {
+        response.writeHead(incoming.statusCode ?? 502, incoming.headers);
+        incoming.pipe(response);
+      },
+    );
+
+    upstream.on('error', () => response.destroy());
+    request.pipe(upstream);
   });
+
+  server.on('close', () => agent.destroy());
 
   server.on('connect', (request, socket, head) => {
     seen.push(request.url ?? '');

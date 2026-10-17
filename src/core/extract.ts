@@ -1,5 +1,6 @@
 import { chmod, copyFile, mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { setTimeout } from 'node:timers/promises';
 import { extract } from 'tar';
 import { ChecksumMismatchError, ExtractionError } from '../errors.ts';
 import type { CacheIntegrity } from './cache.ts';
@@ -8,6 +9,27 @@ import { fileChecksum } from './download.ts';
 import type { Target } from './platform.ts';
 
 const SHARED_LIBRARY = /^lib\/[^/]+\.(?:dylib|so)(?:\.\d+)*$/;
+
+async function publishIntegrity(marker: string, destination: string): Promise<void> {
+  const deadline = Date.now() + 5_000;
+
+  for (;;) {
+    try {
+      await rename(marker, integrityPath(destination));
+      return;
+    } catch (error) {
+      if (
+        process.platform !== 'win32' ||
+        !['EACCES', 'EPERM', 'EBUSY'].includes((error as NodeJS.ErrnoException).code ?? '') ||
+        Date.now() >= deadline
+      ) {
+        throw error;
+      }
+
+      await setTimeout(50);
+    }
+  }
+}
 
 function relativeEntry(entryPath: string): string | null {
   const normalized = entryPath.replaceAll('\\', '/');
@@ -132,7 +154,7 @@ export async function installCached(
       `${JSON.stringify({ ...prepared, generation: basename(generation) }, null, 2)}\n`,
       { encoding: 'utf8', flag: 'wx' },
     );
-    await rename(marker, integrityPath(destination));
+    await publishIntegrity(marker, destination);
     published = true;
 
     return executable;
